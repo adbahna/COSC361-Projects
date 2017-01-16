@@ -5,7 +5,7 @@ int main() {
     if (char_count == 14)
         printf("Correct number of bytes written!\n\n");
 
-    printf("Int: %d\nFloat: %f\nHex: %x\n",1234,1.056432,0x1234f);
+    printf("Int: %d\nFloat: %f\nHex: %x\nString: %s\n",1234,12.34,0x1234f,"1234");
 
     return 0;
 }
@@ -24,7 +24,9 @@ int write_hex(uint64_t arg) {
     return 0;
 }
 int write_string(char* arg) {
-
+    int i;
+    for (i = 0; arg[i] != '\0'; i++) {}
+    write(1,arg,i);
     return 0;
 }
 
