@@ -1,11 +1,12 @@
 #include <printf.hpp>
 
+// TODO: Delete this main before turning in project
 int main() {
     int char_count = printf("Hello, world!\n");
     if (char_count == 14)
         printf("Correct number of bytes written!\n\n");
 
-    printf("Int: %d\nFloat: %f\nHex: %x\nString: %s\n",1234,12.34,0x1234f,"1234");
+    printf("Int: %d\nFloat: %f\nHex: %x\nString: %s\n",1234,12.34,9223372036854775807,"123456789abcdef");
 
     return 0;
 }
@@ -15,19 +16,37 @@ int write_integer(int64_t arg) {
 
     return 0;
 }
+
 int write_float(double arg) {
 
     return 0;
 }
-int write_hex(uint64_t arg) {
 
-    return 0;
+const char a[] = "0123456789ABCDEF";
+int write_hex(uint64_t arg) {
+    int char_count = 0;
+    int i = 16;
+    char out[17];
+    do {
+        out[i] = a[arg % 16];
+        i--;
+        arg = arg/16;
+    }while(arg > 0);
+
+    while( ++i < 17){
+        out[char_count++] = out[i];
+    }
+    out[char_count] = '\0';
+
+    write(1,out,char_count);
+    return char_count;
 }
+
 int write_string(char* arg) {
-    int i;
-    for (i = 0; arg[i] != '\0'; i++) {}
-    write(1,arg,i);
-    return 0;
+    int char_count;
+    for (char_count = 0; arg[char_count] != '\0'; char_count++) {}
+    write(1,arg,char_count);
+    return char_count;
 }
 
 /**
