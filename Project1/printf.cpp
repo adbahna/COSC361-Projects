@@ -1,4 +1,4 @@
-#include <printf.hpp>
+#include "printf.hpp"
 
 // TODO: Delete this main before turning in project
 int main() {
@@ -6,18 +6,63 @@ int main() {
     if (char_count == 14)
         printf("Correct number of bytes written!\n\n");
 
-    printf("Int: %d\nFloat: %f\nHex: %x\nString: %s\n",1234,12.34,9223372036854775807,"123456789abcdef");
+    printf("Int: %d\nFloat: %f\nHex: %x\nString: %s\n",9223372036854775807,12.34,9223372036854775807,"123456789abcdef");
 
     return 0;
 }
 
 // TODO: implement the argument writing functions
+const char n[] = "0123456789";
 int write_integer(int64_t arg) {
+	int char_count = 0; 
+	long long argument = arg; 
+	
+	if (argument < 0) {
+		
+		argument *= -1;
+		char out[22];
+		int i = 21;
+
+		do {
+			out[i] = n[argument % 10];
+			i--;		
+			argument = argument / 10;
+		}while (argument > 0);
+
+
+		char_count++;
+		while(++i < 22)
+			out[char_count++] = out[i]; 
+
+		out[0] = '-';		
+
+		out[char_count++] = '\0';
+		write(1, out, char_count); 	
+	}
+	else { 
+
+		char out[21];
+		int i = 20; 
+	
+		do {
+			out[i] = n[argument % 10];
+			i--;
+			argument = argument / 10; 
+		}while(argument > 0);
+
+		while (++i < 21) {
+			out[char_count++] = out[i]; 
+		}
+		
+		out[char_count++] = '\0';
+		write(1, out, char_count); 	
+	}
 
     return 0;
 }
 
 int write_float(double arg) {
+
 
     return 0;
 }
@@ -77,6 +122,7 @@ int printf(const char *fmt, ...) {
             i++;
             switch (fmt[i]) {
                 case 'd':
+					
                     char_count += write_integer(va_arg(args, int64_t));
                     break;
                 case 'f':
