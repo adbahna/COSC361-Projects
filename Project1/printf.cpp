@@ -4,8 +4,8 @@
 int main() {
 
     // tests for printf to see char_count is correct
-    int char_count = printf("%s\n","Hello, world!");
-    if (char_count == 14) printf("Correct number of bytes written!\n");
+    int char_count = printf("%s\n","Hello, world!123456789");
+    if (char_count == 23) printf("Correct number of bytes written!\n");
     char_count = printf("%d\n",123456789L);
     if (char_count == 10) printf("Correct number of bytes written!\n");
     char_count = printf("%d\n",-123456789L);
@@ -20,6 +20,11 @@ int main() {
     if (char_count == 20) printf("Correct number of bytes written!\n");
     char_count = printf("%d\n",-9223372036854775807L);
     if (char_count == 21) printf("Correct number of bytes written!\n");
+
+    char dest[100];
+    char_count = snprintf(dest,100,"Hello, world!123456789");
+    printf("%s\n",dest,char_count);
+    if (char_count == 22) printf("Correct number of bytes written!\n");
 
     return 0;
 }
@@ -239,6 +244,7 @@ int printf(const char *fmt, ...) {
     return char_count;
 }
 
+
 /**
   Same as printf, except prints to the string dest.
   @dest - The destination string to print to, buffer must be big enough
@@ -250,19 +256,51 @@ int printf(const char *fmt, ...) {
   All variables for %d, %f, and %x must be 64-bits!
   */
 int snprintf(char *dest, size_t size, const char *fmt, ...) {
+    int char_count, bytes_to_write, start_index, precision;
+    int i;
 
-    //	int char_count, start_index, precision;
-    //	int i;
+    va_list args;
+    va_start(args, fmt);
 
-    //	va_list args;
-    //	va_start(args, fmt);
+    precision = 6;
+    char_count = 0;
+    start_index = 0;
+    // parse through the fmt string to find the arguments
+    for (i = 0; char_count < size && fmt[i] != '\0'; i++) {
+        if (fmt[i] == '%') {    // we found an argument, now we need to parse it
+            bytes_to_write = (i-start_index) < (size-char_count) ? i-start_index : size-char_count;
+            for (i = 0; i < bytes_to_write; i++) *(dest+char_count+i) = *(fmt+start_index+i);
+            char_count += bytes_to_write;
 
-    //	precision = 6;
-    //	char_count = 0;
-    //	start_index = 0;
+            i++;
+            switch (fmt[i]) {
+                case 'd':
+                    char_count += write_integer(va_arg(args, int64_t));
+                    break;
+                case '.':
+                    precision = (fmt[++i] - '0');
+                    char_count += write_float(va_arg(args, double), precision);
+                    i++;
+                    break;
+                case 'f':
+                    char_count += write_float(va_arg(args, double), precision);
+                    break;
+                case 'x':
+                    char_count += write_hex(va_arg(args, uint64_t));
+                    break;
+                case 's':
+                    char_count += write_string(va_arg(args, char*));
+                    break;
+            }
+            i++;
+            start_index = i;
+        }
+    }
 
-    //	for (int i = 0;
-    return 0;
+    // write any leftover characters
+    bytes_to_write = (i-start_index) < (size-char_count) ? i-start_index : size-char_count;
+    for (i = 0; i < bytes_to_write; i++) *(dest+char_count+i) = *(fmt+start_index+i);
+    char_count += bytes_to_write;
+
+    return char_count;
 }
-
-
