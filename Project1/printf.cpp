@@ -223,7 +223,7 @@ int printf(const char *fmt, ...) {
                     i++;
                     break;
                 case 'f':
-                    char_count += write_float(va_arg(args, double), precision);
+                    char_count += write_float(va_arg(args, double), 6);
                     break;
                 case 'x':
                     char_count += write_hex(va_arg(args, uint64_t));
@@ -286,7 +286,7 @@ int snprintf(char *dest, size_t size, const char *fmt, ...) {
                     i++;
                     break;
                 case 'f':
-                    char_count += write_float(va_arg(args, double), precision);
+                    char_count += write_float(va_arg(args, double), 6);
                     break;
                 case 'x':
                     char_count += write_hex(va_arg(args, uint64_t));

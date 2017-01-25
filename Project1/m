@@ -1,7 +1,0 @@
-#include <stdio.h>
-int main() {
-    char dest[100];
-    int char_count = snprintf(dest,10,"Hello, world!123456789");
-    printf("%s\n",dest,char_count);
-    if (char_count == 22) printf("Correct number of bytes written!\n");
-}
