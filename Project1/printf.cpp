@@ -98,9 +98,8 @@ int write_float(double arg, int precision) {
 		char out[48];
 		int i = 47;
 
-		//array to hold decimal digits, followed by a decimal counter
-		char decimals[precision + 1];
-		int dcount = 0; 
+		//decimal counter
+		int dcount; 
 
 		//extracting characters from integer part of arg
 		do {
@@ -143,10 +142,11 @@ int write_float(double arg, int precision) {
 	else { 
 
 		double fraction = (arg - int(arg));	
+		
 		char out[48];
 		int i = 47; 
-		char decimals[7];
-		int dcount = 1;
+			
+		int dcount;
 		
 		do {
 			out[i] = f[argument % 10];
