@@ -22,8 +22,8 @@ int main() {
     if (char_count == 21) printf("Correct number of bytes written!\n");
 
     char dest[100];
-    char_count = snprintf(dest,100,"Hello, world!123456789");
-    printf("%s\n",dest,char_count);
+    char_count = snprintf(dest,10,"Hello, world!123456789");
+    printf("%s\t%d\n",dest,char_count);
     if (char_count == 22) printf("Correct number of bytes written!\n");
 
     return 0;
@@ -256,21 +256,24 @@ int printf(const char *fmt, ...) {
   All variables for %d, %f, and %x must be 64-bits!
   */
 int snprintf(char *dest, size_t size, const char *fmt, ...) {
-    int char_count, bytes_to_write, start_index, precision;
+    int char_count, actual_char_count, bytes_to_write, start_index, precision;
     int i;
+    int n = size-1;
 
     va_list args;
     va_start(args, fmt);
 
     precision = 6;
     char_count = 0;
+    actual_char_count = 0;
     start_index = 0;
     // parse through the fmt string to find the arguments
-    for (i = 0; char_count < size && fmt[i] != '\0'; i++) {
+    for (i = 0; fmt[i] != '\0'; i++) {
         if (fmt[i] == '%') {    // we found an argument, now we need to parse it
-            bytes_to_write = (i-start_index) < (size-char_count) ? i-start_index : size-char_count;
-            for (i = 0; i < bytes_to_write; i++) *(dest+char_count+i) = *(fmt+start_index+i);
-            char_count += bytes_to_write;
+            bytes_to_write = (i-start_index) < (n-actual_char_count) ? i-start_index : n-actual_char_count;
+            for (i = 0; i < bytes_to_write; i++) *(dest+actual_char_count+i) = *(fmt+start_index+i);
+            actual_char_count += bytes_to_write;
+            char_count += i-start_index;
 
             i++;
             switch (fmt[i]) {
@@ -298,9 +301,12 @@ int snprintf(char *dest, size_t size, const char *fmt, ...) {
     }
 
     // write any leftover characters
-    bytes_to_write = (i-start_index) < (size-char_count) ? i-start_index : size-char_count;
-    for (i = 0; i < bytes_to_write; i++) *(dest+char_count+i) = *(fmt+start_index+i);
-    char_count += bytes_to_write;
+    bytes_to_write = (i-start_index) < (n-actual_char_count) ? i-start_index : n-actual_char_count;
+    for (int j = 0; j < bytes_to_write; j++) *(dest+actual_char_count+j) = *(fmt+start_index+j);
+    actual_char_count += bytes_to_write;
+    char_count += i-start_index;
+
+    dest[actual_char_count] = '\0';
 
     return char_count;
 }
