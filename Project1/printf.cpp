@@ -22,9 +22,9 @@ int main() {
     if (char_count == 21) printf("Correct number of bytes written!\n");
 
     char dest[100];
-    char_count = snprintf(dest,10,"Hello, world!123456789");
-    printf("%s\t%d\n",dest,char_count);
-    if (char_count == 22) printf("Correct number of bytes written!\n");
+    char_count = snprintf(dest,50,"Hello, my name is who my name is%.4f", 12345.1234567);
+    printf("%s %d\n",dest,char_count);
+//    if (char_count == 22) printf("Correct number of bytes written!\n");
 
     return 0;
 }
@@ -81,11 +81,11 @@ int write_float(double arg, int precision) {
     //decimal value
     int char_count;
     int is_neg;
-    int argument;
+    long long argument;
 
     char_count = 0;
     is_neg = 0;
-    argument = (int) arg;
+    argument = (long long) arg;
 
     if (argument < 0)
     {
@@ -95,7 +95,7 @@ int write_float(double arg, int precision) {
     }
 
     //extracting the decimal from arg
-    double fraction = (arg - int(argument));
+    double fraction = (arg - (long long)argument);
 
     char out[48];
     int i = 47;
@@ -124,10 +124,10 @@ int write_float(double arg, int precision) {
     //collecting decimal digits until precision is reached
     for (dcount = 0; dcount < precision + 1; dcount++) {
         fraction *= 10;
-        out[char_count] = (int(fraction)) + '0';
+        out[char_count] = ((long long)fraction) + '0';
         char_count++;
 
-        fraction -= int(fraction);
+        fraction -= (long long)fraction;
     }
 
     //Checking for rounding
@@ -199,6 +199,8 @@ int printf(const char *fmt, ...) {
     int char_count, start_index, precision;
     int i;
 
+	
+
     va_list args;
     va_start(args, fmt);
 
@@ -257,8 +259,10 @@ int printf(const char *fmt, ...) {
   */
 int snprintf(char *dest, size_t size, const char *fmt, ...) {
     int char_count, actual_char_count, bytes_to_write, start_index, precision;
-    int i;
-    int n = size-1;
+    int i, j, c;
+    int n = size-1, is_neg;
+
+	const char a1[] = "0123456789";	
 
     va_list args;
     va_start(args, fmt);
@@ -271,23 +275,204 @@ int snprintf(char *dest, size_t size, const char *fmt, ...) {
     for (i = 0; fmt[i] != '\0'; i++) {
         if (fmt[i] == '%') {    // we found an argument, now we need to parse it
             bytes_to_write = (i-start_index) < (n-actual_char_count) ? i-start_index : n-actual_char_count;
-            for (i = 0; i < bytes_to_write; i++) *(dest+actual_char_count+i) = *(fmt+start_index+i);
+            for (j = 0; j < bytes_to_write; j++) *(dest+actual_char_count+j) = *(fmt+start_index+j);
             actual_char_count += bytes_to_write;
             char_count += i-start_index;
 
             i++;
             switch (fmt[i]) {
                 case 'd':
-                    char_count += write_integer(va_arg(args, int64_t));
-                    break;
+					long long dArgument;
+
+					dArgument = va_arg(args, int64_t);
+
+			    	c = 0;
+    				is_neg = 0;
+
+			   		//set posiitive, output arrays, and incrementer
+					if (dArgument < 0)
+					{
+						is_neg = 1;
+						dArgument *= -1;
+					}
+
+					char dout[22];
+					j = 21;
+
+					//Sets value to out based on based 10 char array above
+					do {
+						dout[j] = a1[dArgument % 10];
+						j--;
+						dArgument = dArgument / 10;
+					}while (dArgument > 0);
+
+
+				//Set values of out based on loop above
+
+					if (is_neg)
+						c++;
+
+					while(++j < 22)
+						dout[c++] = dout[j];
+
+				//Set negative char in front
+					if (is_neg)
+						dout[0] = '-';
+
+				//Set ending sentinel char and write to output
+					
+    				bytes_to_write = c < (n-actual_char_count) ? c : n-actual_char_count;
+				    for (j = 0; j < bytes_to_write; j++) *(dest+actual_char_count+j) = *(dout+j);
+				    actual_char_count += bytes_to_write;
+					
+					char_count += c;
+        	        break;
                 case '.':
+				{
                     precision = (fmt[++i] - '0');
-                    char_count += write_float(va_arg(args, double), precision);
+
+ 				    c = 0;
+				    is_neg = 0;
+				    long long argument;
+					double arg;
+					
+					arg = va_arg(args, double);
+				    is_neg = 0;
+				    argument = (long long) arg;
+
+				    if (argument < 0)
+    				{
+				        argument *= -1;
+				        arg *= -1;
+				        is_neg = 1;
+    				}
+
+				    //extracting the decimal from arg
+				    double fraction = (arg - (long long)argument);
+
+				    char pout[48];
+					j = 47;
+				    //decimal counter
+				    int dcount;
+
+				    //extracting characters from integer part of arg
+				    do {
+				        pout[j] = a1[argument % 10];
+				        j--;	
+				        argument = argument / 10;
+				    }while (argument > 0);
+
+				    //putting chars of integer argument to output array
+    				if (is_neg)
+				        c++;
+
+				    while(++j < 48)
+				        pout[c++] = pout[j];
+
+				    //adding floating point char
+				    pout[c++] = '.';
+
+				    //collecting decimal digits until precision is reached
+				    for (dcount = 0; dcount < precision + 1; dcount++) {
+				        fraction *= 10;
+				        pout[c] = ((long long)fraction) + '0';
+				        c++;
+				        fraction -= (long long) fraction;
+				    }
+
+   					 //Checking for rounding
+				    if (pout[c - 1] >= '5')
+				        pout[c - 2] += 1;
+
+				    //adding negative char to output if negative
+				    if (is_neg)
+				        pout[0] = '-';
+
+				    pout[c--] = '\0';
+    				
+					bytes_to_write = c < (n-actual_char_count) ? c : n-actual_char_count;
+				    for (j = 0; j < bytes_to_write; j++) *(dest+actual_char_count+j) = *(pout+j);
+				    actual_char_count += bytes_to_write;
+					char_count += c;
+
+                    // char_count += write_float(va_arg(args, double), precision);
                     i++;
                     break;
+				}
                 case 'f':
-                    char_count += write_float(va_arg(args, double), 6);
-                    break;
+           		{
+			         precision = 6;
+
+ 				    c = 0;
+				    is_neg = 0;
+					
+					double arg;
+					long long argument;
+					double fraction;
+
+					arg = va_arg(args, double);
+				    is_neg = 0;
+				    argument = (long long) arg;
+
+				    if (argument < 0)
+    				{
+				        argument *= -1;
+				        arg *= -1;
+				        is_neg = 1;
+    				}
+
+				    //extracting the decimal from arg
+				    fraction = (arg - (long long)argument);
+
+
+				    char fout[48];
+					j = 47;
+				    //decimal counter
+				    int dcount;
+
+				    //extracting characters from integer part of arg
+				    do {
+				        fout[j] = a1[argument % 10];
+				        j--;	
+				        argument = argument / 10;
+				    }while (argument > 0);
+
+				    //putting chars of integer argument to output array
+
+    				if (is_neg)
+				        c++;
+
+				    while(++j < 48)
+				        fout[c++] = fout[j];
+
+				    //adding floating point char
+				    fout[c++] = '.';
+
+				    //collecting decimal digits until precision is reached
+				    for (dcount = 0; dcount < precision + 1; dcount++) {
+				        fraction *= 10;
+				        fout[c] = ((long long)(fraction)) + '0';
+				        c++;
+
+				        fraction -= (long long) fraction;
+				    }
+					
+   					 //Checking for rounding
+				    if (fout[c - 1] >= '5')
+				        fout[c - 2] += 1;
+
+				    //adding negative char to output if negative
+				    if (is_neg)
+				        fout[0] = '-';
+						
+					fout[c--] = '\0';
+
+    				bytes_to_write = c < (n-actual_char_count) ? c : n-actual_char_count;
+				    for (j = 0; j < bytes_to_write; j++) *(dest+actual_char_count+j) = *(fout+j);
+				    actual_char_count += bytes_to_write;
+					char_count += c;
+                }   
+					break;
                 case 'x':
                     char_count += write_hex(va_arg(args, uint64_t));
                     break;
@@ -299,13 +484,16 @@ int snprintf(char *dest, size_t size, const char *fmt, ...) {
             start_index = i;
         }
     }
-
+	
     // write any leftover characters
     bytes_to_write = (i-start_index) < (n-actual_char_count) ? i-start_index : n-actual_char_count;
-    for (int j = 0; j < bytes_to_write; j++) *(dest+actual_char_count+j) = *(fmt+start_index+j);
+
+    for (j = 0; j < bytes_to_write; j++) *(dest+actual_char_count+j) = *(fmt+start_index+j);
     actual_char_count += bytes_to_write;
     char_count += i-start_index;
 
+	printf("%d %d %d\n", bytes_to_write, actual_char_count, char_count);
+	printf("%s\n", dest);
     dest[actual_char_count] = '\0';
 
     return char_count;
