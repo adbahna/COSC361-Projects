@@ -1,42 +1,27 @@
+/////////////////////////////////////////////////////////////////////////////////////////////
+//-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-//
+//=                                                                                       +//
+//-				  CS-361 PROJECT 1 // IMPLEMENTING BASIC PRINTF AND SNPRINTF 	          -//
+//=				  -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=              =//
+//-																						  -//
+//=						 =  Contributors: Michael Goin, Alex Bahna  =				   	  =//
+//-																						  -//
+//=						  	=  Completed: January 25 2017  = 						      =//
+//-																						  -//
+//=									 Description:									 	  =//
+//-																						  -//
+//=																						  =//
+//-	   = Implementation of printf and snprintf (albeit not robust) in language C++		  -//
+//=    = Utilizes printf.hpp, by using its "write" function								  =//
+//-	       - @Parameters: write(output (stdout = 1),  char array, length to write         -//
+//=	   = All arguments assumed to be 64-bit, and are treated as such in each function	  =//
+//-		   - @Arguments: "%d, %f, %.1-6f, %s, %x" 										  -//
+//=																						  =//
+//+-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=//
+/////////////////////////////////////////////////////////////////////////////////////////////
 #include "printf.hpp"
 
-// TODO: Delete this main before turning in project
-int main() {
 
-    // tests for printf to see char_count is correct
-    int char_count = printf("%s\n","Hello, world!123456789");
-    if (char_count == 23) printf("Correct number of bytes written!\n");
-    char_count = printf("%d\n",123456789L);
-    if (char_count == 10) printf("Correct number of bytes written!\n");
-    char_count = printf("%d\n",-123456789L);
-    if (char_count == 11) printf("Correct number of bytes written!\n");
-    char_count = printf("%.4f\n",123456789.123456789);
-    if (char_count == 15) printf("Correct number of bytes written!\n");
-    char_count = printf("%.4f\n",-123456789.123456789);
-    if (char_count == 16) printf("Correct number of bytes written!\n");
-    char_count = printf("%x\n",0x123456789);
-    if (char_count == 10) printf("Correct number of bytes written!\n");
-    char_count = printf("%d\n",9223372036854775807L);
-    if (char_count == 20) printf("Correct number of bytes written!\n");
-    char_count = printf("%d\n",-9223372036854775807L);
-    if (char_count == 21) printf("Correct number of bytes written!\n");
-
-    char dest[100];
-    char_count = snprintf(dest,100,"%s","Hello, world!123456789");
-    printf("%s\n",dest);
-    if (char_count == 22) printf("Correct number of bytes written!\n");
-    char_count = snprintf(dest,100,"%x",0x123456789);
-    printf("%s\n",dest);
-    if (char_count == 9) printf("Correct number of bytes written!\n");
-    char_count = snprintf(dest,100,"%.4f",123456789.123456789);
-    printf("%s\n",dest);
-    if (char_count == 14) printf("Correct number of bytes written!\n");
-    char_count = snprintf(dest,100,"%.4f",-123456789.123456789);
-    printf("%s\n",dest);
-    if (char_count == 15) printf("Correct number of bytes written!\n");
-
-    return 0;
-}
 
 //Function that writes integer argument to stdout
 const char n[] = "0123456789";
@@ -213,6 +198,7 @@ int printf(const char *fmt, ...) {
             char_count += i-start_index;
 
             i++;
+ 			//switch case that passes the written argument based on type
             switch (fmt[i]) {
                 case 'd':
                     char tmp_d[100];
@@ -222,7 +208,11 @@ int printf(const char *fmt, ...) {
                     break;
                 case '.':
                     char tmp_fp[100];
+
+					//'.' specifies precision up 6 digits, so precision needds to be set
+					//		Default precision is 6, when just an f appears
                     precision = (fmt[++i] - '0');
+
                     c = write_float(va_arg(args, double), precision,tmp_fp);
                     write(1,tmp_fp,c);
                     char_count += c;
@@ -293,6 +283,7 @@ int snprintf(char *dest, size_t size, const char *fmt, ...) {
             char_count += i-start_index;
 
             i++;
+			//Same switch as printf, but with different counting / writing
             switch (fmt[i]) {
                 case 'd':
                     char tmp_d[100];
@@ -305,6 +296,7 @@ int snprintf(char *dest, size_t size, const char *fmt, ...) {
                     break;
                 case '.':
                     char tmp_fp[100];
+
                     precision = (fmt[++i] - '0');
                     c = write_float(va_arg(args, double), precision,tmp_fp);
                     //writes the arg
