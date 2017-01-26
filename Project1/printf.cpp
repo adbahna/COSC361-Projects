@@ -34,6 +34,7 @@ int main() {
     char_count = snprintf(dest,100,"%.4f",-123456789.123456789);
     printf("%s\n",dest);
     if (char_count == 15) printf("Correct number of bytes written!\n");
+
     return 0;
 }
 
@@ -87,11 +88,11 @@ int write_float(double arg, int precision, char* out) {
     //decimal value
     int char_count;
     int is_neg;
-    int argument;
+    long long argument;
 
     char_count = 0;
     is_neg = 0;
-    argument = (int) arg;
+    argument = (long long) arg;
 
     if (argument < 0)
     {
@@ -101,7 +102,7 @@ int write_float(double arg, int precision, char* out) {
     }
 
     //extracting the decimal from arg
-    double fraction = (arg - int(argument));
+    double fraction = (arg - (long long)argument);
 
     int i = 47;
 
@@ -129,10 +130,10 @@ int write_float(double arg, int precision, char* out) {
     //collecting decimal digits until precision is reached
     for (dcount = 0; dcount < precision + 1; dcount++) {
         fraction *= 10;
-        out[char_count] = (int(fraction)) + '0';
+        out[char_count] = ((long long)fraction) + '0';
         char_count++;
 
-        fraction -= int(fraction);
+        fraction -= (long long)fraction;
     }
 
     //Checking for rounding
@@ -198,6 +199,7 @@ int printf(const char *fmt, ...) {
     int char_count, start_index, precision;
     int i, c;
 
+
     va_list args;
     va_start(args, fmt);
 
@@ -259,19 +261,20 @@ int printf(const char *fmt, ...) {
 
 
 /*
-  Same as printf, except prints to the string dest.
-  @dest - The destination string to print to, buffer must be big enough
-  to store "size" or size of the "fmt".
-  @fmt - The string/format to store into "dest"
-  @returns - The number of bytes stored in "dest"
+   Same as printf, except prints to the string dest.
+   @dest - The destination string to print to, buffer must be big enough
+   to store "size" or size of the "fmt".
+   @fmt - The string/format to store into "dest"
+   @returns - The number of bytes stored in "dest"
 
-  Supports %d, %f, and %x (decimal, float, and hex).
-  All variables for %d, %f, and %x must be 64-bits!
-  */
+   Supports %d, %f, and %x (decimal, float, and hex).
+   All variables for %d, %f, and %x must be 64-bits!
+   */
 int snprintf(char *dest, size_t size, const char *fmt, ...) {
     int char_count, actual_char_count, bytes_to_write, start_index, precision;
     int i, j, c;
     int n = size-1;
+
 
     va_list args;
     va_start(args, fmt);
@@ -301,8 +304,8 @@ int snprintf(char *dest, size_t size, const char *fmt, ...) {
                     char_count += c;
                     break;
                 case '.':
-                    precision = (fmt[++i] - '0');
                     char tmp_fp[100];
+                    precision = (fmt[++i] - '0');
                     c = write_float(va_arg(args, double), precision,tmp_fp);
                     //writes the arg
                     bytes_to_write = c < (n-actual_char_count) ? c : n-actual_char_count;
