@@ -22,16 +22,24 @@ int main() {
     if (char_count == 21) printf("Correct number of bytes written!\n");
 
     char dest[100];
-    char_count = snprintf(dest,10,"Hello, world!123456789");
-    printf("%s\t%d\n",dest,char_count);
+    char_count = snprintf(dest,100,"%s","Hello, world!123456789");
+    printf("%s\n",dest);
     if (char_count == 22) printf("Correct number of bytes written!\n");
-
+    char_count = snprintf(dest,100,"%x",0x123456789);
+    printf("%s\n",dest);
+    if (char_count == 9) printf("Correct number of bytes written!\n");
+    char_count = snprintf(dest,100,"%.4f",123456789.123456789);
+    printf("%s\n",dest);
+    if (char_count == 14) printf("Correct number of bytes written!\n");
+    char_count = snprintf(dest,100,"%.4f",-123456789.123456789);
+    printf("%s\n",dest);
+    if (char_count == 15) printf("Correct number of bytes written!\n");
     return 0;
 }
 
 //Function that writes integer argument to stdout
 const char n[] = "0123456789";
-int write_integer(int64_t argument) {
+int write_integer(int64_t argument, char* out) {
 
     int char_count = 0;
     int is_neg = 0;
@@ -43,7 +51,6 @@ int write_integer(int64_t argument) {
         argument = -argument;
     }
 
-    char out[22];
     int i = 21;
 
     //Sets value to out based on based 10 char array above
@@ -68,14 +75,13 @@ int write_integer(int64_t argument) {
 
     //Set ending sentinel char and write to output
     out[char_count] = '\0';
-    write(1, out, char_count);
 
     return char_count;
 }
 
 //Function that writes floating point char array to printf with precision parameter
 const char f[] = "0123456789";
-int write_float(double arg, int precision) {
+int write_float(double arg, int precision, char* out) {
 
     //Set incrementer, and set argument to first part of
     //decimal value
@@ -97,7 +103,6 @@ int write_float(double arg, int precision) {
     //extracting the decimal from arg
     double fraction = (arg - int(argument));
 
-    char out[48];
     int i = 47;
 
     //decimal counter
@@ -139,20 +144,18 @@ int write_float(double arg, int precision) {
         out[0] = '-';
 
     out[char_count--] = '\0';
-    write(1, out, char_count);
 
     return char_count;
 }
 
 //Function to write hex char array to printf function
 const char a[] = "0123456789ABCDEF";
-int write_hex(uint64_t arg) {
+int write_hex(uint64_t arg, char* out) {
 
     int char_count = 0;
 
     //incrementer and output char array, to write
     int i = 16;
-    char out[17];
 
     //extract base 16 chars from input arg, based on array above write_hex
     do {
@@ -169,8 +172,6 @@ int write_hex(uint64_t arg) {
     //Sentinelizing array at the end of arg
     out[char_count] = '\0';
 
-    //Writing char array
-    write(1,out,char_count);
     return char_count;
 }
 
@@ -181,8 +182,6 @@ int write_string(char* arg) {
     //simply counts, no need to copy to another array
     for (char_count = 0; arg[char_count] != '\0'; char_count++) {}
 
-    //writes the arg
-    write(1,arg,char_count);
     return char_count;
 }
 
@@ -197,7 +196,7 @@ int write_string(char* arg) {
   */
 int printf(const char *fmt, ...) {
     int char_count, start_index, precision;
-    int i;
+    int i, c;
 
     va_list args;
     va_start(args, fmt);
@@ -211,25 +210,39 @@ int printf(const char *fmt, ...) {
             write(1, (fmt+start_index), i-start_index);
             char_count += i-start_index;
 
-            // TODO: currently assumes we have either %d, %f, %s, or %x. Add formatting!!
             i++;
             switch (fmt[i]) {
                 case 'd':
-                    char_count += write_integer(va_arg(args, int64_t));
+                    char tmp_d[100];
+                    c = write_integer(va_arg(args, int64_t),tmp_d);
+                    write(1,tmp_d,c);
+                    char_count += c;
                     break;
                 case '.':
+                    char tmp_fp[100];
                     precision = (fmt[++i] - '0');
-                    char_count += write_float(va_arg(args, double), precision);
+                    c = write_float(va_arg(args, double), precision,tmp_fp);
+                    write(1,tmp_fp,c);
+                    char_count += c;
                     i++;
                     break;
                 case 'f':
-                    char_count += write_float(va_arg(args, double), 6);
+                    char tmp_f[100];
+                    c = write_float(va_arg(args, double), 6,tmp_f);
+                    write(1,tmp_f,c);
+                    char_count += c;
                     break;
                 case 'x':
-                    char_count += write_hex(va_arg(args, uint64_t));
+                    char tmp_x[100];
+                    c = write_hex(va_arg(args, uint64_t),tmp_x);
+                    write(1,tmp_x,c);
+                    char_count += c;
                     break;
                 case 's':
-                    char_count += write_string(va_arg(args, char*));
+                    char *tmp_s = va_arg(args, char*);
+                    c = write_string(tmp_s);
+                    write(1,tmp_s,c);
+                    char_count += c;
                     break;
             }
             i++;
@@ -245,7 +258,7 @@ int printf(const char *fmt, ...) {
 }
 
 
-/**
+/*
   Same as printf, except prints to the string dest.
   @dest - The destination string to print to, buffer must be big enough
   to store "size" or size of the "fmt".
@@ -257,7 +270,7 @@ int printf(const char *fmt, ...) {
   */
 int snprintf(char *dest, size_t size, const char *fmt, ...) {
     int char_count, actual_char_count, bytes_to_write, start_index, precision;
-    int i;
+    int i, j, c;
     int n = size-1;
 
     va_list args;
@@ -267,32 +280,63 @@ int snprintf(char *dest, size_t size, const char *fmt, ...) {
     char_count = 0;
     actual_char_count = 0;
     start_index = 0;
+    c = 0;
     // parse through the fmt string to find the arguments
-    for (i = 0; fmt[i] != '\0'; i++) {
+    for (i = 0; fmt[i] != '\0';) {
         if (fmt[i] == '%') {    // we found an argument, now we need to parse it
             bytes_to_write = (i-start_index) < (n-actual_char_count) ? i-start_index : n-actual_char_count;
-            for (i = 0; i < bytes_to_write; i++) *(dest+actual_char_count+i) = *(fmt+start_index+i);
+            for (j = 0; j < bytes_to_write; j++) *(dest+actual_char_count+j) = *(fmt+start_index+j);
             actual_char_count += bytes_to_write;
             char_count += i-start_index;
 
             i++;
             switch (fmt[i]) {
                 case 'd':
-                    char_count += write_integer(va_arg(args, int64_t));
+                    char tmp_d[100];
+                    c = write_integer(va_arg(args, int64_t),tmp_d);
+                    //writes the arg
+                    bytes_to_write = c < (n-actual_char_count) ? c : n-actual_char_count;
+                    for (j = 0; j < bytes_to_write; j++) *(dest+actual_char_count+j) = *(tmp_d+j);
+                    actual_char_count += bytes_to_write;
+                    char_count += c;
                     break;
                 case '.':
                     precision = (fmt[++i] - '0');
-                    char_count += write_float(va_arg(args, double), precision);
+                    char tmp_fp[100];
+                    c = write_float(va_arg(args, double), precision,tmp_fp);
+                    //writes the arg
+                    bytes_to_write = c < (n-actual_char_count) ? c : n-actual_char_count;
+                    for (j = 0; j < bytes_to_write; j++) *(dest+actual_char_count+j) = *(tmp_fp+j);
+                    actual_char_count += bytes_to_write;
+                    char_count += c;
                     i++;
                     break;
                 case 'f':
-                    char_count += write_float(va_arg(args, double), 6);
+                    char tmp_f[100];
+                    c = write_float(va_arg(args, double),6,tmp_f);
+                    //writes the arg
+                    bytes_to_write = c < (n-actual_char_count) ? c : n-actual_char_count;
+                    for (j = 0; j < bytes_to_write; j++) *(dest+actual_char_count+j) = *(tmp_f+j);
+                    actual_char_count += bytes_to_write;
+                    char_count += c;
                     break;
                 case 'x':
-                    char_count += write_hex(va_arg(args, uint64_t));
+                    char tmp_x[100];
+                    c = write_hex(va_arg(args, uint64_t), tmp_x);
+                    //writes the arg
+                    bytes_to_write = c < (n-actual_char_count) ? c : n-actual_char_count;
+                    for (j = 0; j < bytes_to_write; j++) *(dest+actual_char_count+j) = *(tmp_x+j);
+                    actual_char_count += bytes_to_write;
+                    char_count += c;
                     break;
                 case 's':
-                    char_count += write_string(va_arg(args, char*));
+                    char *tmp_s = va_arg(args, char*);
+                    c = write_string(tmp_s);
+                    //writes the arg
+                    bytes_to_write = c < (n-actual_char_count) ? c : n-actual_char_count;
+                    for (j = 0; j < bytes_to_write; j++) *(dest+actual_char_count+j) = *(tmp_s+j);
+                    actual_char_count += bytes_to_write;
+                    char_count += c;
                     break;
             }
             i++;
@@ -302,7 +346,7 @@ int snprintf(char *dest, size_t size, const char *fmt, ...) {
 
     // write any leftover characters
     bytes_to_write = (i-start_index) < (n-actual_char_count) ? i-start_index : n-actual_char_count;
-    for (int j = 0; j < bytes_to_write; j++) *(dest+actual_char_count+j) = *(fmt+start_index+j);
+    for (j = 0; j < bytes_to_write; j++) {*(dest+actual_char_count+j) = *(fmt+start_index+j);}
     actual_char_count += bytes_to_write;
     char_count += i-start_index;
 
