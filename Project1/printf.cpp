@@ -6,7 +6,7 @@
 //-																						  -//
 //=						 =  Contributors: Michael Goin, Alex Bahna  =				   	  =//
 //-																						  -//
-//=						  	=  Completed: January 25 2017  = 						      =//
+//=						  	=  Completed: January 25 2017  = 							  =//
 //-																						  -//
 //=									 Description:									 	  =//
 //-																						  -//
