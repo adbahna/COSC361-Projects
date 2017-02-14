@@ -1,10 +1,5 @@
 #include "sched.h"
 
-int main() {
-
-    return 0;
-}
-
 //Simulate a timer interrupt from hardware. This should initiate
 //the context switch procedure
 // - Context switch must save active process' state into the PROCESS structure
@@ -13,16 +8,26 @@ void timer_interrupt(SCHEDULER *s) {
 
 }
 
-//Create a new scheduler
-//This function needs to
-// - Create a new scheduler (on heap)
-// - Schedule process 1 (init)
-// - Set process 1 to current process
-// - Return the created scheduler
+// Create a new scheduler
 SCHEDULER *new_scheduler(PROCESS_CODE_PTR(code)) {
+    // Create a new scheduler (on heap)
     SCHEDULER *sch;
     sch = new SCHEDULER;
 
+    // Schedule process 1 (init)
+    sch->process_list[0].name = (char*)"init";
+    sch->process_list[0].pid = 1;
+    sch->process_list[0].switched = 0;
+    sch->process_list[0].total_cpu_time = 0;
+    sch->process_list[0].switched_cpu_time = 0;
+    sch->process_list[0].sleep_time_remaining = 0;
+    sch->process_list[0].job_time = -1;
+    sch->process_list[0].state = PS_RUNNING;
+
+    // Set process 1 to current process
+    sch->current = 0;
+
+    // Return the created scheduler
     return sch;
 }
 

@@ -1,4 +1,3 @@
-#include <stdio.h>
 //sched.h - Scheduler Project (COSC 361)
 //Stephen Marz 2017
 
@@ -7,15 +6,15 @@
  *****************************************************/
 #pragma once
 
-#define PROCESS_CODE_PTR(x)  	void (*x) (REGISTER_FILE *mr, RETURN *r)
-#define PROCESS_CODE(x)		void x (REGISTER_FILE *mr, RETURN *r)
+#define PROCESS_CODE_PTR(x)     void (*x) (REGISTER_FILE *mr, RETURN *r)
+#define PROCESS_CODE(x)     void x (REGISTER_FILE *mr, RETURN *r)
 #define RETURN_DESC(x,y,z)      r->state = x; r->cpu_time_taken = y; r->sleep_time = z
 
 
-#define MAX_PROCESSES		15
+#define MAX_PROCESSES       15
 //EXTRA CREDIT
-#define MAX_MUTEX		15
-#define MAX_SEM			15
+#define MAX_MUTEX       15
+#define MAX_SEM         15
 
 /*******************************************************
  * Type definitions
@@ -32,12 +31,12 @@ typedef int SEMAPHORE;
  * Describes the scheduling algorithm
  *******************************************************/
 typedef enum {
-	//Interactive scheduling
-	SA_ROUND_ROBIN = 0,
-	SA_FAIR,
-	//Batch scheduling
-	SA_FCFS,
-	SA_SJF,
+    //Interactive scheduling
+    SA_ROUND_ROBIN = 0,
+    SA_FAIR,
+    //Batch scheduling
+    SA_FCFS,
+    SA_SJF,
 } SCHEDULER_ALGORITHM;
 
 /*******************************************************
@@ -45,15 +44,15 @@ typedef enum {
  * Describes the states that a process can be in
  *******************************************************/
 typedef enum {
-	//PS_NONE - process doesn't exist
-	PS_NONE = 0,
-	//PS_RUNNING - process is running
-	PS_RUNNING,
-	//PS_SLEEPING - process is sleeping
-	PS_SLEEPING,
-	//PS_EXITED - the process exited, the scheduler
-	//must deschedule the process
-	PS_EXITED
+    //PS_NONE - process doesn't exist
+    PS_NONE = 0,
+    //PS_RUNNING - process is running
+    PS_RUNNING,
+    //PS_SLEEPING - process is sleeping
+    PS_SLEEPING,
+    //PS_EXITED - the process exited, the scheduler
+    //must deschedule the process
+    PS_EXITED
 } PROCESS_STATE;
 
 /*******************************************************
@@ -61,10 +60,10 @@ typedef enum {
  * Describes a processor's register
  *******************************************************/
 typedef struct {
-	REGISTER r0;
-	REGISTER r1;
-	REGISTER r2;
-	REGISTER r3;
+    REGISTER r0;
+    REGISTER r1;
+    REGISTER r2;
+    REGISTER r3;
 } REGISTER_FILE;
 
 
@@ -76,14 +75,14 @@ typedef struct {
  * project)
  *******************************************************/
 typedef struct {
-	//The new state that the process will enter
-	PROCESS_STATE state;
+    //The new state that the process will enter
+    PROCESS_STATE state;
 
-	//The amount of cpu time that the job took
-	unsigned int cpu_time_taken;
+    //The amount of cpu time that the job took
+    unsigned int cpu_time_taken;
 
-	//The amount of time the job wants to sleep (if the state is SLEEPING)
-	unsigned int sleep_time;
+    //The amount of time the job wants to sleep (if the state is SLEEPING)
+    unsigned int sleep_time;
 } RETURN;
 
 /*******************************************************
@@ -91,42 +90,42 @@ typedef struct {
  * Describes a single process for running
  *******************************************************/
 typedef struct {
-	//Name of this process
-	char *name;
+    //Name of this process
+    char *name;
 
-	//Process ID
-	PID pid;
+    //Process ID
+    PID pid;
 
-	//How many context switches has this process received?
-	unsigned int switched;
+    //How many context switches has this process received?
+    unsigned int switched;
 
-	//How much total CPU time this process has received
-	unsigned int total_cpu_time;
+    //How much total CPU time this process has received
+    unsigned int total_cpu_time;
 
-	//How much CPU time this process has received since a context switch
-	unsigned int switched_cpu_time;
+    //How much CPU time this process has received since a context switch
+    unsigned int switched_cpu_time;
 
-	//If the process is sleeping, how much time before the scheduler should
-	//wake it up. This only functions if the process is in the SLEEPING_XXX states
-	unsigned int sleep_time_remaining;
+    //If the process is sleeping, how much time before the scheduler should
+    //wake it up. This only functions if the process is in the SLEEPING_XXX states
+    unsigned int sleep_time_remaining;
 
-	//The job's time (if not known == -1)
-	int job_time;
+    //The job's time (if not known == -1)
+    int job_time;
 
-	//The saved registers when this process is not active
-	REGISTER_FILE saved_registers;
+    //The saved registers when this process is not active
+    REGISTER_FILE saved_registers;
 
-	//The state that this process is in
-	PROCESS_STATE state;
+    //The state that this process is in
+    PROCESS_STATE state;
 
-	//Initial function, called when process is first started by scheduler
-	//ran once and only once
-	//void (*init) (REGISTER_FILE *machine_registers, RETURN *r);
-	PROCESS_CODE_PTR(init);
+    //Initial function, called when process is first started by scheduler
+    //ran once and only once
+    //void (*init) (REGISTER_FILE *machine_registers, RETURN *r);
+    PROCESS_CODE_PTR(init);
 
-	//Step function, called when this process is context switched to
-	//assuming the process is running
-	PROCESS_CODE_PTR(step);
+    //Step function, called when this process is context switched to
+    //assuming the process is running
+    PROCESS_CODE_PTR(step);
 } PROCESS;
 
 
@@ -135,61 +134,67 @@ typedef struct {
  * Describes the scheduler and its associated processes
  *******************************************************/
 typedef struct {
-	//An array of processes. Process with a state of 0 (PS_NONE)
-	//means it doesn't exist (no process)
-	PROCESS process_list[MAX_PROCESSES];
+    //An array of processes. Process with a state of 0 (PS_NONE)
+    //means it doesn't exist (no process)
+    PROCESS process_list[MAX_PROCESSES];
 
-	//An index into the process list of the currently
-	//running program
-	unsigned int current;
+    //An index into the process list of the currently
+    //running program
+    unsigned int current;
 
-	//The algorithm this scheduler will run when interrupted
-	//by the timer
-	SCHEDULER_ALGORITHM scheduler_algorithm;
+    //The algorithm this scheduler will run when interrupted
+    //by the timer
+    SCHEDULER_ALGORITHM scheduler_algorithm;
 
-	//This is a hack--but these are the active registers in the
-	//CPU. The registers in the PROCESS are SAVED registers.
-	//DO NOT PASS the PROCESS' saved registers to the init or step
-	//functions!!
-	REGISTER_FILE active_registers;
+    //This is a hack--but these are the active registers in the
+    //CPU. The registers in the PROCESS are SAVED registers.
+    //DO NOT PASS the PROCESS' saved registers to the init or step
+    //functions!!
+    REGISTER_FILE active_registers;
 
 
-	//EXTRA CREDIT
-	int mutex_list[MAX_MUTEX];
-	int sem_list[MAX_SEM];
+    //EXTRA CREDIT
+    int mutex_list[MAX_MUTEX];
+    int sem_list[MAX_SEM];
 } SCHEDULER;
 
 //Print out processes in the following format:
 //Pid Name          TotSwch TotCPU SwchCPU State       RemTime
 //
 //1   Test Process  1       155    5       SLEEPING    15
-#ifndef printf
+#if !defined(printf)
+#if defined(__cplusplus)
+extern "C" {
+#endif
 int printf(const char *format, ...);
+#if defined(__cplusplus)
+}
+#endif
 #endif
 static void list_processes(SCHEDULER *s)
 {
-	int i;
-	static const char *states[] = {
-		"!RESERVED!",
-		"RUNNING",
-		"SLEEPING",
-		"??EXITED??"
-	};
-	printf(" Pid Name           TotSwch TotCPU SwchCPU SlpTime JobTime State\n\n");
-	for (i = 0;i < MAX_PROCESSES;i++) {
-		if (s->process_list[i].state != PS_NONE) {
-			printf("%c%-3d %-14s %-7d %-6d %-7d %-7d %-7d %-12s\n",
-				i == s->current ? '*' : ' ',
-				s->process_list[i].pid,
-				s->process_list[i].name,
-				s->process_list[i].switched,
-				s->process_list[i].total_cpu_time,
-				s->process_list[i].switched_cpu_time,
-				s->process_list[i].sleep_time_remaining,
-				s->process_list[i].job_time,
-				states[s->process_list[i].state]);
-		}
-	}
+    unsigned int i;
+    static const char *states[] = {
+        "!RESERVED!",
+        "RUNNING",
+        "SLEEPING",
+        "??EXITED??"
+    };
+    printf(" Pid Name           TotSwch TotCPU SwchCPU SlpTime JobTime State\n\n");
+    for (i = 0;i < MAX_PROCESSES;i++) {
+        if (s->process_list[i].state != PS_NONE) {
+            printf("%c%-3d %-14s %-7d %-6d %-7d %-7d %-7d %-12s\n",
+                i == s->current ? '*' : ' ',
+                s->process_list[i].pid,
+                s->process_list[i].name,
+                s->process_list[i].switched,
+                s->process_list[i].total_cpu_time,
+                s->process_list[i].switched_cpu_time,
+                s->process_list[i].sleep_time_remaining,
+                s->process_list[i].job_time,
+                states[s->process_list[i].state]);
+        }
+    }
 }
 
 /*******************************************************
@@ -245,3 +250,4 @@ void sem_destroy(SCHEDULER *s, SEMAPHORE m);
 //Raises or lowers the semaphore number of semaphore m
 void sem_up(SCHEDULER *s, SEMAPHORE m);
 int sem_down(SCHEDULER *s, SEMAPHORE m);
+
