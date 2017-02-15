@@ -26,7 +26,7 @@ void timer_interrupt(SCHEDULER *s) {
             break;
         case SA_FAIR:
             // pick the lowest of each process'  total_cpu_time / switched_cpu_time
-			minTime = (s->process_list[0].total_cpu_time / s->process_list[0].switched_cpu_time);
+			minTime = 10000000;
 
 			for (i = 1; i < MAX_PROCESSES; i++)
 			{
