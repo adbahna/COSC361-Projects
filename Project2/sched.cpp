@@ -6,12 +6,35 @@
 // - Context switch must save active process' state into the PROCESS structure
 // - Context switch must load the next process' state into the scheduler
 void timer_interrupt(SCHEDULER *s) {
+	
+	int i, foundSwitch, minTime; 	
 
     switch (s->scheduler_algorithm) {
         //Interactive scheduling
-        case SA_ROUND_ROBIN:
-            break;
+     	case SA_ROUND_ROBIN:
+			
+			i = s->current + 1;
+			while(1)
+			{ 
+				if (i == MAX_PROCESSES - 1) 
+					i = 1;
+				else if (s->process_list[i].state == PS_NONE) 
+					i++;
+				else {
+					foundSwitch = i; 
+					break;
+				}
+			}
+          	
+			break;
+
         case SA_FAIR:
+
+			minTime = (s->process_list[0].total_cpu_time / s->process_list[0].switched_cpu_time);
+			for (i = 1; i < MAX_PROCESSES; i++)
+				if ((s->process_list[i].total_cpu_time / s->process_list[i].switched_cpu_time) < minTime);
+					
+					minTime = (s->process_list[i].total_cpu_time / s->process_list[i].switched_cpu_time);
             break;
         //Batch scheduling
         case SA_FCFS:
@@ -20,13 +43,14 @@ void timer_interrupt(SCHEDULER *s) {
             break;
     }
 
+	s->process_list[s->current].saved_registers = s->active_registers; 
+	s->active_registers = s->process_list[i].saved_registers; 
 }
 
 // Create a new scheduler
 SCHEDULER *new_scheduler(PROCESS_CODE_PTR(code)) {
     // Create a new scheduler (on heap)
     SCHEDULER *s = new SCHEDULER;
-
     // Schedule process 1 (init)
     s->process_list[1].name = strdup("init");
     s->process_list[1].pid = 1;
@@ -36,7 +60,6 @@ SCHEDULER *new_scheduler(PROCESS_CODE_PTR(code)) {
     s->process_list[1].sleep_time_remaining = 0;
     s->process_list[1].job_time = -1;
     s->process_list[1].state = PS_RUNNING;
-
     // Set process 1 to current process
     s->current = 1;
 
