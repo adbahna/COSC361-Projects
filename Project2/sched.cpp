@@ -30,11 +30,16 @@ void timer_interrupt(SCHEDULER *s) {
 
         case SA_FAIR:
 
-			minTime = (s->process_list[0].total_cpu_time / s->process_list[0].switched_cpu_time);
+			minTime = 0;
+
 			for (i = 1; i < MAX_PROCESSES; i++)
+			{
 				if ((s->process_list[i].total_cpu_time / s->process_list[i].switched_cpu_time) < minTime);
-					
-					minTime = (s->process_list[i].total_cpu_time / s->process_list[i].switched_cpu_time);
+					minTime = i;
+			}
+
+			i = minTime; 
+
             break;
         //Batch scheduling
         case SA_FCFS:
