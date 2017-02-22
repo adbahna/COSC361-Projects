@@ -1,9 +1,10 @@
-#include "sched.h"
-#include "string.h"
-#include "limits.h"
+// Project 2: Scheduler
+// Goin Bahnanas 2: Just Two Brothers
+// Alex Bahna
+// Michael Goin
 
-#define MIN(a,b) (((a)<(b))?(a):(b))
-#define MAX(a,b) (((a)>(b))?(a):(b))
+#include "sched.h"
+#include "limits.h"
 
 //Simulate a timer interrupt from hardware. This should initiate
 //the context switch procedure
@@ -51,13 +52,12 @@ void timer_interrupt(SCHEDULER *s) {
         //Batch scheduling
         case SA_FCFS:
             // if the current process still has job time left, we keep running it
-            if (s->process_list[s->current].job_time > 0) {
+            if (s->process_list[s->current].job_time != -1) {
                 newProcess = s->current;
                 break;
             }
-
             for (i = 0; i < MAX_PROCESSES; i++) {
-                if (s->process_list[i].state == PS_RUNNING) {
+                if (s->process_list[i].state == PS_RUNNING && i != 1) {
                     newProcess = i;
                     break;
                 }
@@ -67,7 +67,7 @@ void timer_interrupt(SCHEDULER *s) {
             minTime = INT_MAX;
             for (i = 0; i < MAX_PROCESSES; i++)
             {
-                if (s->process_list[i].state == PS_RUNNING && s->process_list[i].job_time > 0) {
+                if (s->process_list[i].state == PS_RUNNING && s->process_list[i].job_time != -1) {
                     if (s->process_list[i].job_time < minTime)
                     {
                         minTime = s->process_list[i].job_time;
@@ -84,6 +84,7 @@ void timer_interrupt(SCHEDULER *s) {
 
     s->current = newProcess;
     s->process_list[newProcess].switched++;
+    s->process_list[newProcess].switched_cpu_time = 0;
 
     RETURN rv;
     // Call either init (context switch count == 1), or step (context switch count > 1)
@@ -96,9 +97,12 @@ void timer_interrupt(SCHEDULER *s) {
     s->process_list[newProcess].state = rv.state;
     s->process_list[newProcess].total_cpu_time += rv.cpu_time_taken;
     s->process_list[newProcess].sleep_time_remaining = rv.sleep_time;
-    s->process_list[newProcess].job_time -= rv.cpu_time_taken;
 
-    printf("PID: %d\t State: %d\t Time_Taken: %d\t Sleep_Time:%d\n",newProcess,rv.state,rv.cpu_time_taken,rv.sleep_time);
+    // if the process has exited or the job is done, then we should deschedule it
+    if (rv.state == PS_EXITED ||
+            (s->process_list[newProcess].job_time != -1 &&
+             (int)s->process_list[newProcess].total_cpu_time >= s->process_list[newProcess].job_time))
+        s->process_list[newProcess].state = PS_NONE;
 
     for (i = 0; i < MAX_PROCESSES; i++) {
         if (i != newProcess) {
@@ -148,6 +152,7 @@ SCHEDULER *new_scheduler(PROCESS_CODE_PTR(code)) {
 
     // Set process 1 to current process
     s->current = 1;
+    s->active_registers = s->process_list[1].saved_registers;
 
     // Return the created scheduler
     return s;
@@ -160,7 +165,7 @@ int fork(SCHEDULER *s, PID src_p) {
     PID pid;
 
     // find a pid that is not being used
-    for (int i = 2; i < MAX_PROCESSES; i++) {
+    for (int i = 0; i < MAX_PROCESSES; i++) {
         if (s->process_list[i].state == PS_NONE) {
             pid = i;
             break;
