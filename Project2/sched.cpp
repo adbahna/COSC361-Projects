@@ -16,7 +16,7 @@ void timer_interrupt(SCHEDULER *s) {
         //Interactive scheduling
         case SA_ROUND_ROBIN:
             i = s->current + 1;
-            while(i != s->current)
+            while(i != (int)s->current)
             {
                 if (i == MAX_PROCESSES - 1)
                     i = 0;
@@ -41,7 +41,7 @@ void timer_interrupt(SCHEDULER *s) {
                             newProcess = i;
                         }
                     }
-                    else if ((s->process_list[i].total_cpu_time / s->process_list[i].switched_cpu_time) < minTime) {
+                    else if ((int)(s->process_list[i].total_cpu_time / s->process_list[i].switched_cpu_time) < minTime) {
                         minTime = (s->process_list[i].total_cpu_time / s->process_list[i].switched_cpu_time);
                         newProcess = i;
                     }
@@ -50,6 +50,12 @@ void timer_interrupt(SCHEDULER *s) {
             break;
         //Batch scheduling
         case SA_FCFS:
+            // if the current process still has job time left, we keep running it
+            if (s->process_list[s->current].job_time > 0) {
+                newProcess = s->current;
+                break;
+            }
+
             for (i = 0; i < MAX_PROCESSES; i++) {
                 if (s->process_list[i].state == PS_RUNNING) {
                     newProcess = i;
@@ -61,7 +67,7 @@ void timer_interrupt(SCHEDULER *s) {
             minTime = INT_MAX;
             for (i = 0; i < MAX_PROCESSES; i++)
             {
-                if (s->process_list[i].state == PS_RUNNING && s->process_list[i].job_time != -1) {
+                if (s->process_list[i].state == PS_RUNNING && s->process_list[i].job_time > 0) {
                     if (s->process_list[i].job_time < minTime)
                     {
                         minTime = s->process_list[i].job_time;
@@ -79,7 +85,6 @@ void timer_interrupt(SCHEDULER *s) {
     s->current = newProcess;
     s->process_list[newProcess].switched++;
 
-    printf("Pid %d: switched %d\n",newProcess,s->process_list[newProcess].switched);
     RETURN rv;
     // Call either init (context switch count == 1), or step (context switch count > 1)
     if (s->process_list[newProcess].switched == 1)
@@ -91,22 +96,27 @@ void timer_interrupt(SCHEDULER *s) {
     s->process_list[newProcess].state = rv.state;
     s->process_list[newProcess].total_cpu_time += rv.cpu_time_taken;
     s->process_list[newProcess].sleep_time_remaining = rv.sleep_time;
+    s->process_list[newProcess].job_time -= rv.cpu_time_taken;
+
+    printf("PID: %d\t State: %d\t Time_Taken: %d\t Sleep_Time:%d\n",newProcess,rv.state,rv.cpu_time_taken,rv.sleep_time);
 
     for (i = 0; i < MAX_PROCESSES; i++) {
-        // Add to the switched_cpu_time of all the other processes
-        if (s->process_list[i].state == PS_RUNNING)
-            s->process_list[i].switched_cpu_time += rv.cpu_time_taken;
-
-        // Decrement the sleep time for all the processes who are sleeping
-        if (s->process_list[i].state == PS_SLEEPING) {
-            // If a process is done sleeping, make it run
-            if (s->process_list[i].sleep_time_remaining <= rv.cpu_time_taken) {
-                s->process_list[i].sleep_time_remaining = 0;
-                s->process_list[i].state = PS_RUNNING;
+        if (i != newProcess) {
+            // Add to the switched_cpu_time of all the other processes
+            if (s->process_list[i].state == PS_RUNNING) {
+                s->process_list[i].switched_cpu_time += rv.cpu_time_taken;
             }
-            // Otherwise substract from sleep time
-            else
-                s->process_list[i].sleep_time_remaining -= rv.cpu_time_taken;
+            // Decrement the sleep time for all the processes who are sleeping
+            else if (s->process_list[i].state == PS_SLEEPING) {
+                // If a process is done sleeping, make it run
+                if (s->process_list[i].sleep_time_remaining <= rv.cpu_time_taken) {
+                    s->process_list[i].sleep_time_remaining = 0;
+                    s->process_list[i].state = PS_RUNNING;
+                }
+                // Otherwise substract from sleep time
+                else
+                    s->process_list[i].sleep_time_remaining -= rv.cpu_time_taken;
+            }
         }
     }
 }
