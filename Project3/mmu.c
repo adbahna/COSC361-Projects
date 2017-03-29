@@ -47,7 +47,9 @@ ADDRESS virt_to_phys(CPU *cpu, ADDRESS virt)
         return RET_PAGE_FAULT;
     //If the PS bit is 0 on the PDPE, then we have a 1GB page size
     if (((pdpe >> 7) & 0x1) != 0) {
-
+        p = (pdpe >> 12) << 12;
+        pe = p + (virt & GB_MASK);
+        return (ADDRESS)&cpu->memory[pe];
     }
 
     pd = (pdpe >> 12) << 12;
@@ -58,7 +60,9 @@ ADDRESS virt_to_phys(CPU *cpu, ADDRESS virt)
         return RET_PAGE_FAULT;
     //If the PS bit is 0 on the PDE, then we have a 2MB page size
     if (((pde >> 7) & 0x1) != 0) {
-
+        p = (pde >> 12) << 12;
+        pe = p + (virt & MB_MASK);
+        return (ADDRESS)&cpu->memory[pe];
     }
 
     pt = (pde >> 12) << 12;
