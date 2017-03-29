@@ -15,15 +15,8 @@ void StartNewPageTable(CPU *cpu)
     cpu->cr3 = p + 0x1000 - (p & 0xfff);
 }
 
-//Write:
-// virt_to_phys
-// map
-// unmap
 ADDRESS virt_to_phys(CPU *cpu, ADDRESS virt)
 {
-    //Convert a physical address *virt* to
-    //a physical address.
-
     //If the MMU is off, simply return the virtual address as
     //the physical address
     if (!(cpu->cr0 & (1 << 31))) {
@@ -32,6 +25,22 @@ ADDRESS virt_to_phys(CPU *cpu, ADDRESS virt)
     if (cpu->cr3 == 0) {
         return RET_PAGE_FAULT;
     }
+
+    //Convert a physical address *virt* to
+    //a physical address.
+    ADDRESS pml4e = (virt >> 39) & ENTRY_MASK;
+    ADDRESS pdpe = (virt >> 30) & ENTRY_MASK;
+    ADDRESS pde = (virt >> 21) & ENTRY_MASK;
+    ADDRESS pte = (virt >> 12) & ENTRY_MASK;
+    ADDRESS p = virt & PHYS_MASK;
+
+    ADDRESS *pml4 = (ADDRESS *)cpu->cr3;
+
+    ADDRESS *pdp;
+    ADDRESS *pd;
+    ADDRESS *pt;
+
+    // if the P bit is 0, page fault
 
     return virt;
 }
@@ -68,15 +77,41 @@ void map(CPU *cpu, ADDRESS phys, ADDRESS virt, PAGE_SIZE ps)
 
 void unmap(CPU *cpu, ADDRESS virt, PAGE_SIZE ps)
 {
-    //Simply set the present bit (P) to 0 of the virtual address page
-    //If the page size is 1G, set the present bit of the PDP to 0
-    //If the page size is 2M, set the present bit of the PD  to 0
-    //If the page size is 4K, set the present bit of the PT  to 0
-
-
     if (cpu->cr3 == 0)
         return;
 
+    ADDRESS pml4_offset, pdp_offset, pd_offset, pt_offset;
+    ADDRESS *pdp, *pd, *pt;
+    // get the pml4 base address from cr3
+    ADDRESS *pml4 = (ADDRESS*)cpu->cr3;
+
+    //Simply set the present bit (P) to 0 of the virtual address page
+
+    //If the page size is 1G, set the present bit of the PDP to 0
+    if (ps == PS_1G) {
+        // add pml4 offset
+        pml4_offset = (virt >> 39) & ENTRY_MASK;
+        pdp = (ADDRESS*)((ADDRESS)pml4 + pml4_offset + pdp_offset);
+
+        pdp_offset = (virt >> 30) & ENTRY_MASK;
+
+
+    }
+    //If the page size is 2M, set the present bit of the PD  to 0
+    else if (ps == PS_2M) {
+        pml4_offset = (virt >> 39) & ENTRY_MASK;
+        pdp_offset = (virt >> 30) & ENTRY_MASK;
+        pd_offset = (virt >> 21) & ENTRY_MASK;
+
+    }
+    //If the page size is 4K, set the present bit of the PT  to 0
+    else {
+        pml4_offset = (virt >> 39) & ENTRY_MASK;
+        pdp_offset = (virt >> 30) & ENTRY_MASK;
+        pd_offset = (virt >> 21) & ENTRY_MASK;
+        pt_offset = (virt >> 12) & ENTRY_MASK;
+
+    }
 }
 
 
