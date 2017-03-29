@@ -103,21 +103,83 @@ void map(CPU *cpu, ADDRESS phys, ADDRESS virt, PAGE_SIZE ps)
         ADDRESS pte = (virt >> 12) & ENTRY_MASK;
         ADDRESS p = virt & PHYS_MASK;
 
-        ADDRESS * pml4 = (ADDRESS *) cpu->cr3; 
-        ADDRESS * pdp;
-        ADDRESS * pd;
-        ADDRESS * pt;
+        ADDRESS pml4, pdp, pd, pt;
         
-        cpu->cr3 = 
+        pml4 = (cpu->cr3 >> 12) << 12; 
+        pml4e += pml4; 
+        pml4e |= 0x0000000000000001;
+        pml4e = (ADDRESS) &cpu->memory[pml4e];
+
+        pdp = (pml4e >> 12) << 12;
+        pdpe += pdp;
+        pdpe |= 0x0000000000000001;
+        pdpe = (ADDRESS) &cpu->memory[pdpe];
+
+        pd = (pdpe >> 12) << 12; 
+        pde += pd;
+        pde |= 0x0000000000000001; 
+        pde = (ADDRESS) &cpu->memory[pde];
+
+        pt = (pde >> 12) << 12; 
+        pte += pt; 
+        pte |= 0x0000000000000001; 
+        pt = (ADDRESS) &cpu->memoryp[pte];
+
+        p = (pte >> 12) << 12;
+        pe += p;
+        pe = (ADDRESS) &cpu->memory[pe];
     }
 
     if (ps == PS_2M) {
+        
+        ADDRESS pml4e = (virt >> 39) & ENTRY_MASK;
+        ADDRESS pdpe = (virt >> 30) & ENTRY_MASK;
+        ADDRESS pde = (virt >> 21) & ENTRY_MASK;
+        ADDRESS p = virt & MB_MASK;
 
+        ADDRESS pml4, pdp, pd, pt;
+
+        pml4 = (cpu->cr3 >> 12) << 12; 
+        pml4e += pml4; 
+        pml4e |= 0x0000000000000001;    
+        pml4e = (ADDRESS) &cpu->memory[pml4e];
+
+        pdp = (pml4e >> 12) << 12;
+        pdpe += pdp; 
+        pdpe |= 0x0000000000000001;
+        pdpe = (ADDRESS) &cpu->memory[pdpe];
+
+        pd = (pdpe >> 12) << 12; 
+        pde += pd;
+        pde |= 0x0000000000000081;
+        pde = (ADDRESS) &cpu->memory[pde];
+
+        p = (pde >> 12) << 12;
+        pe += p;
 
 
     }
 
     if (ps == PS_1G) {
+        
+        ADDRESS pml4e = (virt >> 39) & ENTRY_MASK;
+        ADDRESS pdpe = (virt >> 30) & ENTRY_MASK;
+        ADDRESS p = virt & GB_MASK;
+
+        ADDRESS pml4, pdp, pd, pt;
+
+        pml4 = (cpu->cr3 >> 12) << 12; 
+        pml4e += pml4; 
+        pml4e |= 0x0000000000000001;
+        pml4e = (ADDRESS) &cpu->memory[pml4e];
+
+        pdp = (pml4e >> 12) << 12;
+        pdpe += pdp; 
+        pdpe += 0x0000000000000081;
+        pdpe = (ADDRESS) &cpu->memory[pdpe];
+
+        p = (pdpe >> 12) << 12;
+        pe += p;
 
     
 
