@@ -26,23 +26,53 @@ ADDRESS virt_to_phys(CPU *cpu, ADDRESS virt)
         return RET_PAGE_FAULT;
     }
 
+    ADDRESS pml4, pdp, pd, pt, p;
+    ADDRESS pml4e, pdpe, pde, pte, pe;
+
     //Convert a physical address *virt* to
     //a physical address.
-    ADDRESS pml4e = (virt >> 39) & ENTRY_MASK;
-    ADDRESS pdpe = (virt >> 30) & ENTRY_MASK;
-    ADDRESS pde = (virt >> 21) & ENTRY_MASK;
-    ADDRESS pte = (virt >> 12) & ENTRY_MASK;
-    ADDRESS p = virt & PHYS_MASK;
 
-    ADDRESS *pml4 = (ADDRESS *)cpu->cr3;
+    pml4 = (cpu->cr3 >> 12) << 12;
+    pml4e = pml4 + ((virt >> 39) & ENTRY_MASK);
+    pml4e = (ADDRESS)&cpu->memory[pml4e];
+    //If the P bit is 0, page fault
+    if ((pml4e & 0x1) == 0)
+        return RET_PAGE_FAULT;
 
-    ADDRESS *pdp;
-    ADDRESS *pd;
-    ADDRESS *pt;
+    pdp = (pml4e >> 12) << 12;
+    pdpe = pdp + ((virt >> 30) & ENTRY_MASK);
+    pdpe = (ADDRESS)&cpu->memory[pdpe];
+    //If the P bit is 0, page fault
+    if ((pdpe & 0x1) == 0)
+        return RET_PAGE_FAULT;
+    //If the PS bit is 0 on the PDPE, then we have a 1GB page size
+    if (((pdpe >> 7) & 0x1) != 0) {
 
-    // if the P bit is 0, page fault
+    }
 
-    return virt;
+    pd = (pdpe >> 12) << 12;
+    pde = pd + ((virt >> 21) & ENTRY_MASK);
+    pde = (ADDRESS)&cpu->memory[pde];
+    //If the P bit is 0, page fault
+    if ((pde & 0x1) == 0)
+        return RET_PAGE_FAULT;
+    //If the PS bit is 0 on the PDE, then we have a 2MB page size
+    if (((pde >> 7) & 0x1) != 0) {
+
+    }
+
+    pt = (pde >> 12) << 12;
+    pte = pt + ((virt >> 12) & ENTRY_MASK);
+    pte = (ADDRESS)&cpu->memory[pte];
+    //If the P bit is 0, page fault
+    if ((pte & 0x1) == 0)
+        return RET_PAGE_FAULT;
+
+    //We have a 4KB page size
+    p = (pte >> 12) << 12;
+    pe = p + (virt & PHYS_MASK);
+
+    return (ADDRESS)&cpu->memory[pe];
 }
 
 void map(CPU *cpu, ADDRESS phys, ADDRESS virt, PAGE_SIZE ps)
