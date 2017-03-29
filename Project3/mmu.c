@@ -57,9 +57,36 @@ void map(CPU *cpu, ADDRESS phys, ADDRESS virt, PAGE_SIZE ps)
     //Remember that I could have some 2M pages and some 4K pages with a smattering
     //of 1G pages!
 
-    if (cpu->cr3 == 0) {
-        //Nothing has been created, so start here
-        StartNewPageTable(cpu);
+    if (cpu->cr3 == 0) StartNewPageTable(cpu);
+
+    if (cpu->cr3 == 0) return;
+
+    if (ps == PS_4K) {
+
+        ADDRESS pml4e = (virt >> 39) & ENTRY_MASK;
+        ADDRESS pdpe = (virt >> 30) & ENTRY_MASK;
+        ADDRESS pde = (virt >> 21) & ENTRY_MASK;
+        ADDRESS pte = (virt >> 12) & ENTRY_MASK;
+        ADDRESS p = virt & PHYS_MASK;
+
+        ADDRESS * pml4 = (ADDRESS *) cpu->cr3; 
+        ADDRESS * pdp;
+        ADDRESS * pd;
+        ADDRESS * pt;
+        
+        cpu->cr3 = 
+    }
+
+    if (ps == PS_2M) {
+
+
+
+    }
+
+    if (ps == PS_1G) {
+
+    
+
     }
     /*
        ADDRESS pml4e = (virt >> 39) & ENTRY_MASK;
