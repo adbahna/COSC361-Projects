@@ -1,10 +1,10 @@
 #include "mmu.h"
 
-#define NULL_ADDRESS	(0ul)
-#define PHYS_MASK	(0xffful)
-#define ENTRY_MASK	(0x1fful)
-#define GB_MASK		(0x3ffffffful)
-#define MB_MASK		(0x2fffful)
+#define NULL_ADDRESS    (0ul)
+#define PHYS_MASK       (0xffful)
+#define ENTRY_MASK      (0x1fful)
+#define GB_MASK         (0x3ffffffful)
+#define MB_MASK         (0x2fffful)
 
 void StartNewPageTable(CPU *cpu)
 {
@@ -34,14 +34,14 @@ ADDRESS virt_to_phys(CPU *cpu, ADDRESS virt)
 
     pml4 = (cpu->cr3 >> 12) << 12;
     pml4e = pml4 + ((virt >> 39) & ENTRY_MASK);
-    pml4e = (ADDRESS)&cpu->memory[pml4e];
+    pml4e = *((ADDRESS*)&cpu->memory[pml4e]);
     //If the P bit is 0, page fault
     if ((pml4e & 0x1) == 0)
         return RET_PAGE_FAULT;
 
     pdp = (pml4e >> 12) << 12;
     pdpe = pdp + ((virt >> 30) & ENTRY_MASK);
-    pdpe = (ADDRESS)&cpu->memory[pdpe];
+    pdpe = *((ADDRESS*)&cpu->memory[pdpe]);
     //If the P bit is 0, page fault
     if ((pdpe & 0x1) == 0)
         return RET_PAGE_FAULT;
@@ -49,12 +49,12 @@ ADDRESS virt_to_phys(CPU *cpu, ADDRESS virt)
     if (((pdpe >> 7) & 0x1) != 0) {
         p = (pdpe >> 12) << 12;
         pe = p + (virt & GB_MASK);
-        return (ADDRESS)&cpu->memory[pe];
+        return *((ADDRESS*)&cpu->memory[pe]);
     }
 
     pd = (pdpe >> 12) << 12;
     pde = pd + ((virt >> 21) & ENTRY_MASK);
-    pde = (ADDRESS)&cpu->memory[pde];
+    pde = *((ADDRESS*)&cpu->memory[pde]);
     //If the P bit is 0, page fault
     if ((pde & 0x1) == 0)
         return RET_PAGE_FAULT;
@@ -62,12 +62,12 @@ ADDRESS virt_to_phys(CPU *cpu, ADDRESS virt)
     if (((pde >> 7) & 0x1) != 0) {
         p = (pde >> 12) << 12;
         pe = p + (virt & MB_MASK);
-        return (ADDRESS)&cpu->memory[pe];
+        return *((ADDRESS*)&cpu->memory[pe]);
     }
 
     pt = (pde >> 12) << 12;
     pte = pt + ((virt >> 12) & ENTRY_MASK);
-    pte = (ADDRESS)&cpu->memory[pte];
+    pte = *((ADDRESS*)&cpu->memory[pte]);
     //If the P bit is 0, page fault
     if ((pte & 0x1) == 0)
         return RET_PAGE_FAULT;
@@ -76,7 +76,7 @@ ADDRESS virt_to_phys(CPU *cpu, ADDRESS virt)
     p = (pte >> 12) << 12;
     pe = p + (virt & PHYS_MASK);
 
-    return (ADDRESS)&cpu->memory[pe];
+    return *((ADDRESS*)&cpu->memory[pe]);
 }
 
 void map(CPU *cpu, ADDRESS phys, ADDRESS virt, PAGE_SIZE ps)
@@ -114,37 +114,75 @@ void unmap(CPU *cpu, ADDRESS virt, PAGE_SIZE ps)
     if (cpu->cr3 == 0)
         return;
 
-    ADDRESS pml4_offset, pdp_offset, pd_offset, pt_offset;
-    ADDRESS *pdp, *pd, *pt;
-    // get the pml4 base address from cr3
-    ADDRESS *pml4 = (ADDRESS*)cpu->cr3;
+    ADDRESS pml4, pdp, pd, pt, p;
+    ADDRESS pml4e, pdpe, pde, pte, pe;
 
-    //Simply set the present bit (P) to 0 of the virtual address page
+    // get the pml4 base address from cr3
+    pml4 = (cpu->cr3 >> 12) << 12;
 
     //If the page size is 1G, set the present bit of the PDP to 0
     if (ps == PS_1G) {
-        // add pml4 offset
-        pml4_offset = (virt >> 39) & ENTRY_MASK;
-        pdp = (ADDRESS*)((ADDRESS)pml4 + pml4_offset + pdp_offset);
+        pml4e = pml4 + ((virt >> 39) & ENTRY_MASK);
+        pml4e = *((ADDRESS*)&cpu->memory[pml4e]);
+        //If the P bit is 0, return because the map is invalid
+        if ((pml4e & 0x1) == 0)
+            return;
 
-        pdp_offset = (virt >> 30) & ENTRY_MASK;
+        pdp = (pml4e >> 12) << 12;
+        pdpe = pdp + ((virt >> 30) & ENTRY_MASK);
 
-
+        //Simply set the present bit (P) to 0 of the virtual address page
+        *((ADDRESS*)&cpu->memory[pdpe]) = *((ADDRESS*)&cpu->memory[pdpe]) & 0xfffffffffffffffe;
     }
     //If the page size is 2M, set the present bit of the PD  to 0
     else if (ps == PS_2M) {
-        pml4_offset = (virt >> 39) & ENTRY_MASK;
-        pdp_offset = (virt >> 30) & ENTRY_MASK;
-        pd_offset = (virt >> 21) & ENTRY_MASK;
+        pml4e = pml4 + ((virt >> 39) & ENTRY_MASK);
+        pml4e = *((ADDRESS*)&cpu->memory[pml4e]);
+        //If the P bit is 0, return because the map is invalid
+        if ((pml4e & 0x1) == 0)
+            return;
 
+        pdp = (pml4e >> 12) << 12;
+        pdpe = pdp + ((virt >> 30) & ENTRY_MASK);
+        pdpe = *((ADDRESS*)&cpu->memory[pdpe]);
+        //If the P bit or PS bit is 0, the map is invalid
+        if (((pdpe & 0x1) == 0) && (((pdpe >> 7) & 0x1) != 0))
+            return;
+
+        pd = (pdpe >> 12) << 12;
+        pde = pd + ((virt >> 21) & ENTRY_MASK);
+
+        //Simply set the present bit (P) to 0 of the virtual address page
+        *((ADDRESS*)&cpu->memory[pde]) = *((ADDRESS*)&cpu->memory[pde]) & 0xfffffffffffffffe;
     }
     //If the page size is 4K, set the present bit of the PT  to 0
     else {
-        pml4_offset = (virt >> 39) & ENTRY_MASK;
-        pdp_offset = (virt >> 30) & ENTRY_MASK;
-        pd_offset = (virt >> 21) & ENTRY_MASK;
-        pt_offset = (virt >> 12) & ENTRY_MASK;
+        pml4e = pml4 + ((virt >> 39) & ENTRY_MASK);
+        pml4e = *((ADDRESS*)&cpu->memory[pml4e]);
+        //If the P bit is 0, return because the map is invalid
+        if ((pml4e & 0x1) == 0)
+            return;
 
+        pdp = (pml4e >> 12) << 12;
+        pdpe = pdp + ((virt >> 30) & ENTRY_MASK);
+        pdpe = *((ADDRESS*)&cpu->memory[pdpe]);
+        //If the P bit or PS bit is 0, the map is invalid
+        if (((pdpe & 0x1) == 0) && (((pdpe >> 7) & 0x1) != 0))
+            return;
+
+        pd = (pdpe >> 12) << 12;
+        pde = pd + ((virt >> 21) & ENTRY_MASK);
+        pde = *((ADDRESS*)&cpu->memory[pde]);
+        //If the P bit or PS bit is 0, the map is invalid
+        if (((pde & 0x1) == 0) && (((pde >> 7) & 0x1) != 0))
+            return;
+
+        pt = (pde >> 12) << 12;
+        pte = pt + ((virt >> 12) & ENTRY_MASK);
+        pte = *((ADDRESS*)&cpu->memory[pte]);
+
+        //Simply set the present bit (P) to 0 of the virtual address page
+        *((ADDRESS*)&cpu->memory[pte]) = *((ADDRESS*)&cpu->memory[pte]) & 0xfffffffffffffffe;
     }
 }
 
