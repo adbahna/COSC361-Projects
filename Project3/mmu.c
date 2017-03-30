@@ -101,9 +101,9 @@ void map(CPU *cpu, ADDRESS phys, ADDRESS virt, PAGE_SIZE ps)
         ADDRESS pdpe = (virt >> 30) & ENTRY_MASK;
         ADDRESS pde = (virt >> 21) & ENTRY_MASK;
         ADDRESS pte = (virt >> 12) & ENTRY_MASK;
-        ADDRESS p = virt & PHYS_MASK;
+        ADDRESS pe = virt & PHYS_MASK;
 
-        ADDRESS pml4, pdp, pd, pt;
+        ADDRESS pml4, pdp, pd, pt, p;
         
         pml4 = (cpu->cr3 >> 12) << 12; 
         pml4e += pml4; 
@@ -123,7 +123,7 @@ void map(CPU *cpu, ADDRESS phys, ADDRESS virt, PAGE_SIZE ps)
         pt = (pde >> 12) << 12; 
         pte += pt; 
         pte |= 0x0000000000000001; 
-        pt = *((ADDRESS *) &cpu->memoryp[pte]);
+        pt = *((ADDRESS *) &cpu->memory[pte]);
 
         p = (pte >> 12) << 12;
         pe += p;
@@ -135,9 +135,9 @@ void map(CPU *cpu, ADDRESS phys, ADDRESS virt, PAGE_SIZE ps)
         ADDRESS pml4e = (virt >> 39) & ENTRY_MASK;
         ADDRESS pdpe = (virt >> 30) & ENTRY_MASK;
         ADDRESS pde = (virt >> 21) & ENTRY_MASK;
-        ADDRESS p = virt & MB_MASK;
+        ADDRESS pe = virt & MB_MASK;
 
-        ADDRESS pml4, pdp, pd, pt;
+        ADDRESS pml4, pdp, pd, p;
 
         pml4 = (cpu->cr3 >> 12) << 12; 
         pml4e += pml4; 
@@ -164,9 +164,9 @@ void map(CPU *cpu, ADDRESS phys, ADDRESS virt, PAGE_SIZE ps)
         
         ADDRESS pml4e = (virt >> 39) & ENTRY_MASK;
         ADDRESS pdpe = (virt >> 30) & ENTRY_MASK;
-        ADDRESS p = virt & GB_MASK;
+        ADDRESS pe = virt & GB_MASK;
 
-        ADDRESS pml4, pdp, pd, pt;
+        ADDRESS pml4, pdp, p;
 
         pml4 = (cpu->cr3 >> 12) << 12; 
         pml4e += pml4; 
@@ -203,8 +203,8 @@ void unmap(CPU *cpu, ADDRESS virt, PAGE_SIZE ps)
     if (cpu->cr3 == 0)
         return;
 
-    ADDRESS pml4, pdp, pd, pt, p;
-    ADDRESS pml4e, pdpe, pde, pte, pe;
+    ADDRESS pml4, pdp, pd, pt;
+    ADDRESS pml4e, pdpe, pde, pte;
 
     // get the pml4 base address from cr3
     pml4 = (cpu->cr3 >> 12) << 12;
