@@ -107,25 +107,32 @@ int fs_drive(const char *dname)
     }
 
     // read in nodes
-    for (int i = 0; i < header->nodes; i++) {
+    for (unsigned int i = 0; i < header->nodes; i++) {
         // read node
         n = (NODE*)malloc(sizeof(NODE));
-        fread(n, sizeof(ONDISK_NODE_SIZE), 1, hdfd);
+        fread(n, ONDISK_NODE_SIZE, 1, hdfd);
+        n->blocks = NULL;
 
         if (n->size > 0) {
             // read in block offsets
-            n->blocks = (uint64_t*)malloc(sizeof(uint64_t)*n->size/header->block_size+1);
-            fread(n->blocks, sizeof(uint64_t), n->size/header->block_size+1, hdfd);
+            n->blocks = (uint64_t*)malloc(sizeof(uint64_t)*(n->size/header->block_size)+1);
+            fread(n->blocks, sizeof(uint64_t)*((n->size/header->block_size)+1), 1, hdfd);
         }
 
         nodes.insert(make_pair(n->name,n));
     }
 
+    // read in blocks
+    for (unsigned int i = 0; i < header->blocks; i++) {
+        b = (BLOCK*)malloc(sizeof(BLOCK));
+        b->data = (char*)malloc(sizeof(header->block_size));
+        fread(b->data, sizeof(char), header->block_size, hdfd);
+        blocks.push_back(b);
+    }
+
     for (map<string,NODE*>::iterator it = nodes.begin(); it != nodes.end(); it++) {
         debugf("%s\n", it->first.c_str());
     }
-
-    // read in blocks
 
     return 0;
 }
@@ -138,7 +145,10 @@ int fs_drive(const char *dname)
 int fs_open(const char *path, struct fuse_file_info *fi)
 {
     debugf("fs_open: %s\n", path);
-    return -EIO;
+
+    if (nodes.find(path) == nodes.end())
+        return -ENOENT;
+    return 0;
 }
 
 //////////////////////////////////////////////////////////////////
@@ -216,6 +226,11 @@ int fs_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
         off_t offset, struct fuse_file_info *fi)
 {
     debugf("fs_readdir: %s\n", path);
+
+    map<string,NODE*>::iterator it = nodes.find(path);
+
+    if (it == nodes.end() || (it->second->mode ^ (S_IFDIR | it->second->mode)) != 0)
+        return -ENOTDIR;
 
     //filler(buf, <name of file/directory>, 0, 0)
     filler(buf, ".", 0, 0);
