@@ -253,10 +253,13 @@ int fs_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 int fs_opendir(const char *path, struct fuse_file_info *fi)
 {
     debugf("fs_opendir: %s\n", path);
-
 	
+	map <string, NODE *>::iterator it; 
 
-    return -EIO;
+	it = nodes.find(it); 
+	if ((it->second->mode ^ (it->second->mode | S_IFDIR)) != 0 || it == nodes.end()) return -ENOENT;
+
+	return 0; 
 }
 
 //////////////////////////////////////////////////////////////////
