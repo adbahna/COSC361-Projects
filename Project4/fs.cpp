@@ -12,6 +12,8 @@
 #include <cstdarg>
 #include <cstring>
 #include <cstdlib>
+#include <vector>
+#include <map>
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -56,19 +58,23 @@ using namespace std;
 #if defined(DEBUG)
 int debugf(const char *fmt, ...)
 {
-	int bytes = 0;
-	va_list args;
-	va_start(args, fmt);
-	bytes = vfprintf(stderr, fmt, args);
-	va_end(args);
-	return bytes;
+    int bytes = 0;
+    va_list args;
+    va_start(args, fmt);
+    bytes = vfprintf(stderr, fmt, args);
+    va_end(args);
+    return bytes;
 }
 #else
 int debugf(const char *fmt, ...)
 {
-	return 0;
+    return 0;
 }
 #endif
+
+BLOCK_HEADER* header;
+map<string,NODE*> nodes;
+vector<BLOCK*> blocks;
 
 //////////////////////////////////////////////////////////////////
 //
@@ -85,8 +91,43 @@ int debugf(const char *fmt, ...)
 //////////////////////////////////////////////////////////////////
 int fs_drive(const char *dname)
 {
-	debugf("fs_drive: %s\n", dname);
-	return -EIO;
+    debugf("fs_drive: %s\n", dname);
+    NODE* n;
+    BLOCK* b;
+
+    FILE* hdfd = fopen(dname, "r");
+
+    header = (BLOCK_HEADER*)malloc(sizeof(BLOCK_HEADER));
+    // read in block header
+    fread(header, sizeof(BLOCK_HEADER), 1, hdfd);
+
+    // incorrect magic
+    if (strcmp(header->magic,MAGIC) != 0) {
+        //return -EINVAL;
+    }
+
+    // read in nodes
+    for (int i = 0; i < header->nodes; i++) {
+        // read node
+        n = (NODE*)malloc(sizeof(NODE));
+        fread(n, sizeof(ONDISK_NODE_SIZE), 1, hdfd);
+
+        if (n->size > 0) {
+            // read in block offsets
+            n->blocks = (uint64_t*)malloc(sizeof(uint64_t)*n->size/header->block_size+1);
+            fread(n->blocks, sizeof(uint64_t), n->size/header->block_size+1, hdfd);
+        }
+
+        nodes.insert(make_pair(n->name,n));
+    }
+
+    for (map<string,NODE*>::iterator it = nodes.begin(); it != nodes.end(); it++) {
+        debugf("%s\n", it->first.c_str());
+    }
+
+    // read in blocks
+
+    return 0;
 }
 
 //////////////////////////////////////////////////////////////////
@@ -96,8 +137,8 @@ int fs_drive(const char *dname)
 //////////////////////////////////////////////////////////////////
 int fs_open(const char *path, struct fuse_file_info *fi)
 {
-	debugf("fs_open: %s\n", path);
-	return -EIO;
+    debugf("fs_open: %s\n", path);
+    return -EIO;
 }
 
 //////////////////////////////////////////////////////////////////
@@ -106,10 +147,10 @@ int fs_open(const char *path, struct fuse_file_info *fi)
 //need to start the reading at the offset given by <offset>.
 //////////////////////////////////////////////////////////////////
 int fs_read(const char *path, char *buf, size_t size, off_t offset,
-	    struct fuse_file_info *fi)
+        struct fuse_file_info *fi)
 {
-	debugf("fs_read: %s\n", path);
-	return -EIO;
+    debugf("fs_read: %s\n", path);
+    return -EIO;
 }
 
 //////////////////////////////////////////////////////////////////
@@ -122,10 +163,10 @@ int fs_read(const char *path, char *buf, size_t size, off_t offset,
 //If all works, return the number of bytes written.
 //////////////////////////////////////////////////////////////////
 int fs_write(const char *path, const char *data, size_t size, off_t offset,
-	     struct fuse_file_info *fi)
+        struct fuse_file_info *fi)
 {
-	debugf("fs_write: %s\n", path);
-	return -EIO;
+    debugf("fs_write: %s\n", path);
+    return -EIO;
 }
 
 //////////////////////////////////////////////////////////////////
@@ -138,8 +179,8 @@ int fs_write(const char *path, const char *data, size_t size, off_t offset,
 //////////////////////////////////////////////////////////////////
 int fs_create(const char *path, mode_t mode, struct fuse_file_info *fi)
 {
-	debugf("fs_create: %s\n", path);
-	return -EIO;
+    debugf("fs_create: %s\n", path);
+    return -EIO;
 }
 
 //////////////////////////////////////////////////////////////////
@@ -157,8 +198,8 @@ int fs_create(const char *path, mode_t mode, struct fuse_file_info *fi)
 //////////////////////////////////////////////////////////////////
 int fs_getattr(const char *path, struct stat *s)
 {
-	debugf("fs_getattr: %s\n", path);
-	return -EIO;
+    debugf("fs_getattr: %s\n", path);
+    return -EIO;
 }
 
 //////////////////////////////////////////////////////////////////
@@ -172,18 +213,18 @@ int fs_getattr(const char *path, struct stat *s)
 //(assuming it passes fs_getattr)
 //////////////////////////////////////////////////////////////////
 int fs_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
-	       off_t offset, struct fuse_file_info *fi)
+        off_t offset, struct fuse_file_info *fi)
 {
-	debugf("fs_readdir: %s\n", path);
+    debugf("fs_readdir: %s\n", path);
 
-	//filler(buf, <name of file/directory>, 0, 0)
-	filler(buf, ".", 0, 0);
-	filler(buf, "..", 0, 0);
+    //filler(buf, <name of file/directory>, 0, 0)
+    filler(buf, ".", 0, 0);
+    filler(buf, "..", 0, 0);
 
-	//You MUST make sure that there is no front slashes in the name (second parameter to filler)
-	//Otherwise, this will FAIL.
+    //You MUST make sure that there is no front slashes in the name (second parameter to filler)
+    //Otherwise, this will FAIL.
 
-	return 0;
+    return 0;
 }
 
 //////////////////////////////////////////////////////////////////
@@ -193,8 +234,8 @@ int fs_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 //////////////////////////////////////////////////////////////////
 int fs_opendir(const char *path, struct fuse_file_info *fi)
 {
-	debugf("fs_opendir: %s\n", path);
-	return -EIO;
+    debugf("fs_opendir: %s\n", path);
+    return -EIO;
 }
 
 //////////////////////////////////////////////////////////////////
@@ -202,7 +243,7 @@ int fs_opendir(const char *path, struct fuse_file_info *fi)
 //////////////////////////////////////////////////////////////////
 int fs_chmod(const char *path, mode_t mode)
 {
-	return -EIO;
+    return -EIO;
 }
 
 //////////////////////////////////////////////////////////////////
@@ -210,8 +251,8 @@ int fs_chmod(const char *path, mode_t mode)
 //////////////////////////////////////////////////////////////////
 int fs_chown(const char *path, uid_t uid, gid_t gid)
 {
-	debugf("fs_chown: %s\n", path);
-	return -EIO;
+    debugf("fs_chown: %s\n", path);
+    return -EIO;
 }
 
 //////////////////////////////////////////////////////////////////
@@ -223,8 +264,8 @@ int fs_chown(const char *path, uid_t uid, gid_t gid)
 //////////////////////////////////////////////////////////////////
 int fs_unlink(const char *path)
 {
-	debugf("fs_unlink: %s\n", path);
-	return -EIO;
+    debugf("fs_unlink: %s\n", path);
+    return -EIO;
 }
 
 //////////////////////////////////////////////////////////////////
@@ -234,8 +275,8 @@ int fs_unlink(const char *path)
 //////////////////////////////////////////////////////////////////
 int fs_mkdir(const char *path, mode_t mode)
 {
-	debugf("fs_mkdir: %s\n", path);
-	return -EIO;
+    debugf("fs_mkdir: %s\n", path);
+    return -EIO;
 }
 
 //////////////////////////////////////////////////////////////////
@@ -245,8 +286,8 @@ int fs_mkdir(const char *path, mode_t mode)
 //////////////////////////////////////////////////////////////////
 int fs_rmdir(const char *path)
 {
-	debugf("fs_rmdir: %s\n", path);
-	return -EIO;
+    debugf("fs_rmdir: %s\n", path);
+    return -EIO;
 }
 
 //////////////////////////////////////////////////////////////////
@@ -257,8 +298,8 @@ int fs_rmdir(const char *path)
 //////////////////////////////////////////////////////////////////
 int fs_rename(const char *path, const char *new_name)
 {
-	debugf("fs_rename: %s -> %s\n", path, new_name);
-	return -EIO;
+    debugf("fs_rename: %s -> %s\n", path, new_name);
+    return -EIO;
 }
 
 //////////////////////////////////////////////////////////////////
@@ -269,8 +310,8 @@ int fs_rename(const char *path, const char *new_name)
 //////////////////////////////////////////////////////////////////
 int fs_truncate(const char *path, off_t size)
 {
-	debugf("fs_truncate: %s to size %d\n", path, size);
-	return -EIO;
+    debugf("fs_truncate: %s to size %d\n", path, size);
+    return -EIO;
 }
 
 //////////////////////////////////////////////////////////////////
@@ -279,11 +320,11 @@ int fs_truncate(const char *path, off_t size)
 //////////////////////////////////////////////////////////////////
 void fs_destroy(void *ptr)
 {
-	const char *filename = (const char *)ptr;
-	debugf("fs_destroy: %s\n", filename);
+    const char *filename = (const char *)ptr;
+    debugf("fs_destroy: %s\n", filename);
 
-	//Save the internal data to the hard drive
-	//specified by <filename>
+    //Save the internal data to the hard drive
+    //specified by <filename>
 }
 
 //////////////////////////////////////////////////////////////////
@@ -292,34 +333,34 @@ void fs_destroy(void *ptr)
 //////////////////////////////////////////////////////////////////
 int main(int argc, char *argv[])
 {
-	fuse_operations *fops;
-	char *evars[] = { "./fs", "-f", "mnt", NULL };
-	int ret;
+    fuse_operations *fops;
+    char *evars[] = { "./fs", "-f", "mnt", NULL };
+    int ret;
 
-	if ((ret = fs_drive(HARD_DRIVE)) != 0) {
-		debugf("Error reading hard drive: %s\n", strerror(-ret));
-		return ret;
-	}
-	//FUSE operations
-	fops = (struct fuse_operations *) calloc(1, sizeof(struct fuse_operations));
-	fops->getattr = fs_getattr;
-	fops->readdir = fs_readdir;
-	fops->opendir = fs_opendir;
-	fops->open = fs_open;
-	fops->read = fs_read;
-	fops->write = fs_write;
-	fops->create = fs_create;
-	fops->chmod = fs_chmod;
-	fops->chown = fs_chown;
-	fops->unlink = fs_unlink;
-	fops->mkdir = fs_mkdir;
-	fops->rmdir = fs_rmdir;
-	fops->rename = fs_rename;
-	fops->truncate = fs_truncate;
-	fops->destroy = fs_destroy;
+    if ((ret = fs_drive(HARD_DRIVE)) != 0) {
+        debugf("Error reading hard drive: %s\n", strerror(-ret));
+        return ret;
+    }
+    //FUSE operations
+    fops = (struct fuse_operations *) calloc(1, sizeof(struct fuse_operations));
+    fops->getattr = fs_getattr;
+    fops->readdir = fs_readdir;
+    fops->opendir = fs_opendir;
+    fops->open = fs_open;
+    fops->read = fs_read;
+    fops->write = fs_write;
+    fops->create = fs_create;
+    fops->chmod = fs_chmod;
+    fops->chown = fs_chown;
+    fops->unlink = fs_unlink;
+    fops->mkdir = fs_mkdir;
+    fops->rmdir = fs_rmdir;
+    fops->rename = fs_rename;
+    fops->truncate = fs_truncate;
+    fops->destroy = fs_destroy;
 
-	debugf("Press CONTROL-C to quit\n\n");
+    debugf("Press CONTROL-C to quit\n\n");
 
-	return fuse_main(sizeof(evars) / sizeof(evars[0]) - 1, evars, fops,
-			 (void *)HARD_DRIVE);
+    return fuse_main(sizeof(evars) / sizeof(evars[0]) - 1, evars, fops,
+            (void *)HARD_DRIVE);
 }
