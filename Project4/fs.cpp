@@ -63,7 +63,7 @@ int debugf(const char *fmt, ...)
     va_start(args, fmt);
     bytes = vfprintf(stderr, fmt, args);
     va_end(args);
-    return bytes;
+    return bytes;	
 }
 #else
 int debugf(const char *fmt, ...)
@@ -208,8 +208,26 @@ int fs_create(const char *path, mode_t mode, struct fuse_file_info *fi)
 //////////////////////////////////////////////////////////////////
 int fs_getattr(const char *path, struct stat *s)
 {
+	map <string, NODE *>::iterator it; 
+
     debugf("fs_getattr: %s\n", path);
-    return -EIO;
+
+	it = nodes.find(path);
+	if (it == nodes.end()) 
+	{
+		debugf("Error: path name not correct\n"); 
+		return -EIO;
+	}
+
+	s->st_mode = it->second->mode; 
+	s->st_nlink = 1; 
+	s->st_atime = it->second->atime; 
+	s->st_uid = it->second->uid; 
+	s->st_gid = it->second->gid; 
+	s->st_size = it->second->size;
+	s->st_xtime = it->second->xtime; 
+
+    return 0;
 }
 
 //////////////////////////////////////////////////////////////////
@@ -250,7 +268,13 @@ int fs_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 int fs_opendir(const char *path, struct fuse_file_info *fi)
 {
     debugf("fs_opendir: %s\n", path);
-    return -EIO;
+	
+	map <string, NODE *>::iterator it; 
+
+	it = nodes.find(it); 
+	if ((it->second->mode ^ (it->second->mode | S_IFDIR)) != 0 || it == nodes.end()) return -ENOENT;
+
+	return 0; 
 }
 
 //////////////////////////////////////////////////////////////////
