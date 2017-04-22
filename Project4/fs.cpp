@@ -92,8 +92,6 @@ vector<BLOCK*> blocks;
 int fs_drive(const char *dname)
 {
     debugf("fs_drive: %s\n", dname);
-    NODE* n;
-    BLOCK* b;
 
     FILE* hdfd = fopen(dname, "r");
 
@@ -110,7 +108,7 @@ int fs_drive(const char *dname)
     // read in nodes
     for (unsigned int i = 0; i < header->nodes; i++) {
         // read node
-        n = (NODE*)malloc(sizeof(NODE));
+        NODE* n = (NODE*)malloc(sizeof(NODE));
         fread(n, ONDISK_NODE_SIZE, 1, hdfd);
         n->blocks = NULL;
 
@@ -123,13 +121,14 @@ int fs_drive(const char *dname)
         nodes.insert(make_pair(n->name,n));
     }
 
+    /*
     // read in blocks
     for (unsigned int i = 0; i < header->blocks; i++) {
-        b = (BLOCK*)malloc(sizeof(BLOCK));
+        BLOCK* b = (BLOCK*)malloc(sizeof(BLOCK));
         b->data = (char*)malloc(sizeof(header->block_size));
         fread(b->data, sizeof(char), header->block_size, hdfd);
         blocks.push_back(b);
-    }
+    }*/
 
     for (map<string,NODE*>::iterator it = nodes.begin(); it != nodes.end(); it++) {
         debugf("%s\n", it->first.c_str());
@@ -209,11 +208,10 @@ int fs_create(const char *path, mode_t mode, struct fuse_file_info *fi)
 //////////////////////////////////////////////////////////////////
 int fs_getattr(const char *path, struct stat *s)
 {
-    map <string, NODE *>::iterator it;
 
     debugf("fs_getattr: %s\n", path);
 
-    it = nodes.find(path);
+    map <string, NODE *>::iterator it = nodes.find(path);
     if (it == nodes.end())
     {
         debugf("Error: path name not correct\n");
@@ -252,7 +250,18 @@ int fs_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
     if (it == nodes.end() || (it->second->mode ^ (S_IFDIR | it->second->mode)) != 0)
         return -ENOTDIR;
 
-    //rfind
+    string path_s = path, s;
+    string::size_type pos;
+
+    for (it = nodes.begin(); it != nodes.end(); it++) {
+        pos = it->first.rfind("/");
+
+        // if the file/dir is in the folder given to us, buffer it
+        if (path_s == it->first.substr(0,pos)) {
+            filler(buf, it->first.substr(pos).c_str(), 0, 0);
+            debugf("Filled: %s\n",it->first.substr(pos).c_str());
+        }
+    }
 
     //filler(buf, <name of file/directory>, 0, 0)
     filler(buf, ".", 0, 0);
@@ -273,9 +282,8 @@ int fs_opendir(const char *path, struct fuse_file_info *fi)
 {
     debugf("fs_opendir: %s\n", path);
 
-    map <string, NODE *>::iterator it;
+    map <string, NODE *>::iterator it = nodes.find(path);
 
-    it = nodes.find(path);
     if (it == nodes.end() || (it->second->mode ^ (it->second->mode | S_IFDIR)) != 0) return -ENOENT;
 
     return 0;
