@@ -114,6 +114,7 @@ int fs_drive(const char *dname)
 
         if (n->size > 0) {
             // read in block offsets
+            debugf("number of block offsets:%d \n", (n->size/header->block_size)+1);
             n->blocks = (uint64_t*)malloc(sizeof(uint64_t)*(n->size/header->block_size)+1);
             fread(n->blocks, sizeof(uint64_t),((n->size/header->block_size)+1), hdfd);
         }
@@ -124,6 +125,7 @@ int fs_drive(const char *dname)
     /*
     // read in blocks
     for (unsigned int i = 0; i < header->blocks; i++) {
+        debugf("sizeof(BLOCK):%d \n", sizeof(BLOCK));
         BLOCK* b = (BLOCK*)malloc(sizeof(BLOCK));
         b->data = (char*)malloc(sizeof(header->block_size));
         fread(b->data, sizeof(char), header->block_size, hdfd);
@@ -245,21 +247,24 @@ int fs_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 {
     debugf("fs_readdir: %s\n", path);
 
+    string path_s, s;
+    string::size_type pos;
     map<string,NODE*>::iterator it = nodes.find(path);
 
     if (it == nodes.end() || (it->second->mode ^ (S_IFDIR | it->second->mode)) != 0)
         return -ENOTDIR;
 
-    string path_s = path, s;
-    string::size_type pos;
+    path_s = path;
+    if (path_s == "/")
+        path_s = "";
 
     for (it = nodes.begin(); it != nodes.end(); it++) {
         pos = it->first.rfind("/");
 
         // if the file/dir is in the folder given to us, buffer it
-        if (path_s == it->first.substr(0,pos)) {
-            filler(buf, it->first.substr(pos).c_str(), 0, 0);
-            debugf("Filled: %s\n",it->first.substr(pos).c_str());
+        if (it->first != "/" && path_s != it->first && path_s == it->first.substr(0,pos)) {
+            filler(buf, it->first.substr(pos+1,string::npos).c_str(), 0, 0);
+            debugf("FILLED: %s\n",it->first.substr(pos+1).c_str());
         }
     }
 
