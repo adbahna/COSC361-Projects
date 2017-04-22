@@ -284,7 +284,8 @@ int fs_opendir(const char *path, struct fuse_file_info *fi)
 
     map <string, NODE *>::iterator it = nodes.find(path);
 
-    if (it == nodes.end() || (it->second->mode ^ (it->second->mode | S_IFDIR)) != 0) return -ENOENT;
+    if (it == nodes.end() || (it->second->mode ^ (it->second->mode | S_IFDIR)) != 0)
+        return -ENOENT;
 
     return 0;
 }
@@ -294,7 +295,15 @@ int fs_opendir(const char *path, struct fuse_file_info *fi)
 //////////////////////////////////////////////////////////////////
 int fs_chmod(const char *path, mode_t mode)
 {
-    return -EIO;
+    debugf("fs_chmod: %s\n", path);
+
+    map<string,NODE*>::iterator it = nodes.find(path);
+    if (it == nodes.end())
+        return -ENOENT;
+
+    it->second->mode = mode;
+
+    return 0;
 }
 
 //////////////////////////////////////////////////////////////////
