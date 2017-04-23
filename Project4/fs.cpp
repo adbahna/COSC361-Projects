@@ -74,7 +74,7 @@ int debugf(const char *fmt, ...)
 
 BLOCK_HEADER* header;
 map<string,NODE*> nodes;
-vector<BLOCK*> blocks;
+map<int,BLOCK*> blocks;
 
 //////////////////////////////////////////////////////////////////
 //
@@ -129,8 +129,9 @@ int fs_drive(const char *dname)
         BLOCK* b = (BLOCK*)malloc(sizeof(BLOCK));
         b->data = (char*)malloc(sizeof(header->block_size));
         fread(b->data, sizeof(char), header->block_size, hdfd);
-        blocks.push_back(b);
-    }*/
+        blocks.insert(make_pair(i,b));
+    }
+    */
 
     for (map<string,NODE*>::iterator it = nodes.begin(); it != nodes.end(); it++) {
         debugf("%s\n", it->first.c_str());
@@ -178,6 +179,8 @@ int fs_write(const char *path, const char *data, size_t size, off_t offset,
         struct fuse_file_info *fi)
 {
     debugf("fs_write: %s\n", path);
+
+
     return -EIO;
 }
 
@@ -192,7 +195,29 @@ int fs_write(const char *path, const char *data, size_t size, off_t offset,
 int fs_create(const char *path, mode_t mode, struct fuse_file_info *fi)
 {
     debugf("fs_create: %s\n", path);
-    return -EIO;
+
+    if (strlen(path) > NAME_SIZE)
+        return -ENAMETOOLONG;
+    if (fi->flags & O_RDONLY)
+        return -EROFS;
+    // if the file already exits, leave
+    if (nodes.find(path) != nodes.end())
+        return 0;
+
+    NODE* n = (NODE*)malloc(sizeof(NODE));
+    strcpy(n->name,path);
+    n->mode = mode | S_IFREG;
+    n->ctime = time(NULL);
+    n->atime = time(NULL);
+    n->mtime = time(NULL);
+    n->uid = getuid();
+    n->gid = getgid();
+    n->size = 0;
+    n->blocks = NULL;
+
+    nodes.insert(make_pair(path,n));
+
+    return 0;
 }
 
 //////////////////////////////////////////////////////////////////
@@ -341,6 +366,10 @@ int fs_unlink(const char *path)
 int fs_mkdir(const char *path, mode_t mode)
 {
     debugf("fs_mkdir: %s\n", path);
+
+    if (nodes.find(path) != nodes.end())
+        return -EEXIST;
+
     return -EIO;
 }
 
