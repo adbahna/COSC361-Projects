@@ -342,7 +342,15 @@ int fs_chmod(const char *path, mode_t mode)
 int fs_chown(const char *path, uid_t uid, gid_t gid)
 {
     debugf("fs_chown: %s\n", path);
-    return -EIO;
+
+    map<string,NODE*>::iterator it = nodes.find(path);
+    if (it == nodes.end())
+        return -EIO;
+
+    it->second->uid = uid;
+    it->second->gid = gid;
+
+    return 0;
 }
 
 //////////////////////////////////////////////////////////////////
@@ -367,10 +375,26 @@ int fs_mkdir(const char *path, mode_t mode)
 {
     debugf("fs_mkdir: %s\n", path);
 
+    if (strlen(path) > NAME_SIZE)
+        return -ENAMETOOLONG;
+    // if the file already exits, leave
     if (nodes.find(path) != nodes.end())
         return -EEXIST;
 
-    return -EIO;
+    NODE* n = (NODE*)malloc(sizeof(NODE));
+    strcpy(n->name,path);
+    n->mode = mode | S_IFDIR;
+    n->ctime = time(NULL);
+    n->atime = time(NULL);
+    n->mtime = time(NULL);
+    n->uid = getuid();
+    n->gid = getgid();
+    n->size = 0;
+    n->blocks = NULL;
+
+    nodes.insert(make_pair(path,n));
+
+    return 0;
 }
 
 //////////////////////////////////////////////////////////////////
