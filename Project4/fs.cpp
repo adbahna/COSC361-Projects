@@ -74,7 +74,7 @@ int debugf(const char *fmt, ...)
 
 BLOCK_HEADER* header;
 map<string,NODE*> nodes;
-vector<BLOCK*> blocks;
+map<int,BLOCK*> blocks;
 
 //////////////////////////////////////////////////////////////////
 //
@@ -127,7 +127,7 @@ int fs_drive(const char *dname)
         BLOCK* b = (BLOCK*)malloc(sizeof(BLOCK));
         b->data = (char*)malloc(sizeof(char)*header->block_size);
         fread(b->data, sizeof(char), header->block_size, hdfd);
-        blocks.push_back(b);
+        blocks.insert(make_pair(i,b));
     }
 
     for (map<string,NODE*>::iterator it = nodes.begin(); it != nodes.end(); it++) {
@@ -150,76 +150,6 @@ int fs_open(const char *path, struct fuse_file_info *fi)
 
     if (nodes.find(path) == nodes.end())
         return -ENOENT;
-    return 0;
-}
-
-//////////////////////////////////////////////////////////////////
-//Read a file <path>. You will be reading from the block and
-//writing into <buf>, this buffer has a size of <size>. You will
-//need to start the reading at the offset given by <offset>.
-//////////////////////////////////////////////////////////////////
-int fs_read(const char *path, char *buf, size_t size, off_t offset,
-        struct fuse_file_info *fi)
-{
-    debugf("fs_read: %s\n", path);
-
-    map <string, NODE *>::iterator it = nodes.find(path);
-    if (it == nodes.end())
-        return -ENOENT;
-
-    // make sure we don't read more than the file has
-    size = min(size,it->second->size);
-
-    int block_offset = 0, byte_offset = 0;
-    if (offset != 0) {
-        block_offset = header->block_size/offset;
-        byte_offset = header->block_size%offset;
-    }
-
-    uint64_t* start_block = it->second->blocks+block_offset;
-
-    int count = 0, i = 0;
-    size_t bytes_written = 0;
-    // if there is a byte offset, then we will not be memory aligned with the blocks
-    // so we need to make copies before and after the main block loop to get all the bytes
-    if (byte_offset != 0) {
-        count = min(size-bytes_written,header->block_size-byte_offset);
-        memcpy(buf+bytes_written, blocks[(*start_block)]->data+byte_offset, count);
-        bytes_written += count;
-        i++;
-    }
-
-    while (bytes_written < size) {
-        count = min(size-bytes_written,header->block_size);
-        memcpy(buf+bytes_written, blocks[*(start_block+i)]->data, count);
-        bytes_written += count;
-        i++;
-    }
-
-    return bytes_written;
-}
-
-//////////////////////////////////////////////////////////////////
-//Write a file <path>. If the file doesn't exist, it is first
-//created with fs_create. You need to write the data given by
-//<data> and size <size> into this file block. You will also need
-//to write data starting at <offset> in your file. If there is not
-//enough space, return -ENOSPC. Finally, if we're a read only file
-//system (fi->flags & O_RDONLY), then return -EROFS
-//If all works, return the number of bytes written.
-//////////////////////////////////////////////////////////////////
-int fs_write(const char *path, const char *data, size_t size, off_t offset,
-        struct fuse_file_info *fi)
-{
-    debugf("fs_write: %s\n", path);
-
-    map <string, NODE *>::iterator it = nodes.find(path);
-    if (it == nodes.end())
-        return -ENOENT;
-    if (fi->flags & O_RDONLY)
-        return -EROFS;
-
-
     return 0;
 }
 
@@ -255,6 +185,77 @@ int fs_create(const char *path, mode_t mode, struct fuse_file_info *fi)
     n->blocks = NULL;
 
     nodes.insert(make_pair(path,n));
+    header->nodes++;
+
+    return 0;
+}
+
+//////////////////////////////////////////////////////////////////
+//Read a file <path>. You will be reading from the block and
+//writing into <buf>, this buffer has a size of <size>. You will
+//need to start the reading at the offset given by <offset>.
+//////////////////////////////////////////////////////////////////
+int fs_read(const char *path, char *buf, size_t size, off_t offset,
+        struct fuse_file_info *fi)
+{
+    debugf("fs_read: %s\n", path);
+
+    map <string, NODE *>::iterator it = nodes.find(path);
+    if (it == nodes.end())
+        return -ENOENT;
+
+    // make sure we don't read more than the file has
+    size = min(size,it->second->size);
+
+    int block_offset = 0, byte_offset = 0;
+    if (offset != 0) {
+        block_offset = header->block_size/offset;
+        byte_offset = header->block_size%offset;
+    }
+
+    uint64_t* start_block = it->second->blocks+block_offset;
+
+    int count = 0, i = 0;
+    size_t bytes_written = 0;
+    // if there is a byte offset, we need to read just a section of the first block
+    if (byte_offset != 0) {
+        count = min(size-bytes_written,header->block_size-byte_offset);
+        memcpy(buf+bytes_written, blocks[(*start_block)]->data+byte_offset, count);
+        bytes_written += count;
+        i++;
+    }
+
+    // keep reading blocks until we read size bytes
+    while (bytes_written < size) {
+        count = min(size-bytes_written,header->block_size);
+        memcpy(buf+bytes_written, blocks[*(start_block+i)]->data, count);
+        bytes_written += count;
+        i++;
+    }
+
+    return bytes_written;
+}
+
+//////////////////////////////////////////////////////////////////
+//Write a file <path>. If the file doesn't exist, it is first
+//created with fs_create. You need to write the data given by
+//<data> and size <size> into this file block. You will also need
+//to write data starting at <offset> in your file. If there is not
+//enough space, return -ENOSPC. Finally, if we're a read only file
+//system (fi->flags & O_RDONLY), then return -EROFS
+//If all works, return the number of bytes written.
+//////////////////////////////////////////////////////////////////
+int fs_write(const char *path, const char *data, size_t size, off_t offset,
+        struct fuse_file_info *fi)
+{
+    debugf("fs_write: %s\n", path);
+
+    if (fi->flags & O_RDONLY)
+        return -EROFS;
+
+    map <string, NODE *>::iterator it = nodes.find(path);
+    if (it == nodes.end())
+        fs_create(path, 0, fi);
 
     return 0;
 }
@@ -279,10 +280,7 @@ int fs_getattr(const char *path, struct stat *s)
 
     map <string, NODE *>::iterator it = nodes.find(path);
     if (it == nodes.end())
-    {
-        debugf("Error: path name not correct\n");
-        return -EIO;
-    }
+        return -ENOENT;
 
     s->st_mode = it->second->mode;
     s->st_nlink = 1;
@@ -384,7 +382,7 @@ int fs_chown(const char *path, uid_t uid, gid_t gid)
 
     map<string,NODE*>::iterator it = nodes.find(path);
     if (it == nodes.end())
-        return -EIO;
+        return -ENOENT;
 
     it->second->uid = uid;
     it->second->gid = gid;
@@ -432,6 +430,7 @@ int fs_mkdir(const char *path, mode_t mode)
     n->blocks = NULL;
 
     nodes.insert(make_pair(path,n));
+    header->nodes++;
 
     return 0;
 }
@@ -446,9 +445,10 @@ int fs_rmdir(const char *path)
     debugf("fs_rmdir: %s\n", path);
 
     char buf[NAME_SIZE];
-    sprintf("%s/",path);
-
     map<string,NODE*>::iterator it;
+
+
+    sprintf(buf,"%s/",path);
     for (it = nodes.begin(); it != nodes.end(); it++) {
         // if any file has the directory as a substring in it's path,
         // then it must be inside of the directory and it isn't empty
@@ -457,6 +457,7 @@ int fs_rmdir(const char *path)
     }
 
     nodes.erase(path);
+    header->nodes--;
 
     return 0;
 }
@@ -496,6 +497,30 @@ void fs_destroy(void *ptr)
 
     //Save the internal data to the hard drive
     //specified by <filename>
+
+    FILE* hdfd = fopen(filename, "w");
+
+    header->nodes = nodes.size();
+    header->blocks = blocks.size();
+    fwrite(header,sizeof(BLOCK_HEADER),1,hdfd);
+
+    // write nodes
+    for (map<string,NODE*>::iterator it = nodes.begin(); it != nodes.end(); it++) {
+        // read node
+        fwrite(it->second, ONDISK_NODE_SIZE, 1, hdfd);
+
+        if (it->second->size > 0) {
+            // write block offsets
+            fwrite(it->second->blocks, sizeof(uint64_t),((it->second->size/header->block_size)+1), hdfd);
+        }
+    }
+
+    // write blocks
+    for (unsigned int i = 0; i < blocks.size(); i++) {
+        fwrite(blocks[i]->data, sizeof(char), header->block_size, hdfd);
+    }
+
+    fclose(hdfd);
 }
 
 //////////////////////////////////////////////////////////////////
