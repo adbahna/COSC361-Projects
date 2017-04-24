@@ -74,7 +74,7 @@ int debugf(const char *fmt, ...)
 
 BLOCK_HEADER* header;
 map<string,NODE*> nodes;
-map<int,BLOCK*> blocks;
+vector<BLOCK*> blocks;
 
 //////////////////////////////////////////////////////////////////
 //
@@ -122,20 +122,19 @@ int fs_drive(const char *dname)
         nodes.insert(make_pair(n->name,n));
     }
 
-    /*
     // read in blocks
     for (unsigned int i = 0; i < header->blocks; i++) {
-        debugf("sizeof(BLOCK):%d \n", sizeof(BLOCK));
         BLOCK* b = (BLOCK*)malloc(sizeof(BLOCK));
-        b->data = (char*)malloc(sizeof(header->block_size));
+        b->data = (char*)malloc(sizeof(char)*header->block_size);
         fread(b->data, sizeof(char), header->block_size, hdfd);
-        blocks.insert(make_pair(i,b));
+        blocks.push_back(b);
     }
-    */
 
     for (map<string,NODE*>::iterator it = nodes.begin(); it != nodes.end(); it++) {
-        debugf("%s\n", it->first.c_str());
+        debugf("NODE: %s\n", it->first.c_str());
     }
+
+    fclose(hdfd);
 
     return 0;
 }
@@ -163,7 +162,41 @@ int fs_read(const char *path, char *buf, size_t size, off_t offset,
         struct fuse_file_info *fi)
 {
     debugf("fs_read: %s\n", path);
-    return -EIO;
+
+    map <string, NODE *>::iterator it = nodes.find(path);
+    if (it == nodes.end())
+        return -ENOENT;
+
+    // make sure we don't read more than the file has
+    size = min(size,it->second->size);
+
+    int block_offset = 0, byte_offset = 0;
+    if (offset != 0) {
+        block_offset = header->block_size/offset;
+        byte_offset = header->block_size%offset;
+    }
+
+    uint64_t* start_block = it->second->blocks+block_offset;
+
+    int count = 0, i = 0;
+    size_t bytes_written = 0;
+    // if there is a byte offset, then we will not be memory aligned with the blocks
+    // so we need to make copies before and after the main block loop to get all the bytes
+    if (byte_offset != 0) {
+        count = min(size-bytes_written,header->block_size-byte_offset);
+        memcpy(buf+bytes_written, blocks[(*start_block)]->data+byte_offset, count);
+        bytes_written += count;
+        i++;
+    }
+
+    while (bytes_written < size) {
+        count = min(size-bytes_written,header->block_size);
+        memcpy(buf+bytes_written, blocks[*(start_block+i)]->data, count);
+        bytes_written += count;
+        i++;
+    }
+
+    return bytes_written;
 }
 
 //////////////////////////////////////////////////////////////////
@@ -180,8 +213,14 @@ int fs_write(const char *path, const char *data, size_t size, off_t offset,
 {
     debugf("fs_write: %s\n", path);
 
+    map <string, NODE *>::iterator it = nodes.find(path);
+    if (it == nodes.end())
+        return -ENOENT;
+    if (fi->flags & O_RDONLY)
+        return -EROFS;
 
-    return -EIO;
+
+    return 0;
 }
 
 //////////////////////////////////////////////////////////////////
@@ -405,7 +444,21 @@ int fs_mkdir(const char *path, mode_t mode)
 int fs_rmdir(const char *path)
 {
     debugf("fs_rmdir: %s\n", path);
-    return -EIO;
+
+    char buf[NAME_SIZE];
+    sprintf("%s/",path);
+
+    map<string,NODE*>::iterator it;
+    for (it = nodes.begin(); it != nodes.end(); it++) {
+        // if any file has the directory as a substring in it's path,
+        // then it must be inside of the directory and it isn't empty
+        if (it->first.find(buf) != string::npos)
+            return -ENOTEMPTY;
+    }
+
+    nodes.erase(path);
+
+    return 0;
 }
 
 //////////////////////////////////////////////////////////////////
