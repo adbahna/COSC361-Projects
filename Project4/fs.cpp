@@ -128,6 +128,7 @@ int fs_drive(const char *dname)
         b->data = (char*)malloc(sizeof(char)*header->block_size);
         fread(b->data, sizeof(char), header->block_size, hdfd);
         blocks.insert(make_pair(i,b));
+		debugf("%s\n\n", b->data);
     }
 
     for (map<string,NODE*>::iterator it = nodes.begin(); it != nodes.end(); it++) {
@@ -248,6 +249,9 @@ int fs_read(const char *path, char *buf, size_t size, off_t offset,
 int fs_write(const char *path, const char *data, size_t size, off_t offset,
         struct fuse_file_info *fi)
 {
+	int blockData;
+	int blockIndex;
+
     debugf("fs_write: %s\n", path);
 
     if (fi->flags & O_RDONLY)
@@ -256,6 +260,14 @@ int fs_write(const char *path, const char *data, size_t size, off_t offset,
     map <string, NODE *>::iterator it = nodes.find(path);
     if (it == nodes.end())
         fs_create(path, 0, fi);
+
+	//it = nodes.find(path);
+
+	//it->second->size = size;
+	//it->second->offset = 
+
+	//blockData = offset / header->block_size;
+	//blockIndex = offset % header->block_size;
 
     return 0;
 }
@@ -400,11 +412,38 @@ int fs_chown(const char *path, uid_t uid, gid_t gid)
 int fs_unlink(const char *path)
 {
     debugf("fs_unlink: %s\n", path);
-    return -EIO;
+
+	int i, offset; 
+	NODE * n; 
+	map <std::string, NODE *>::iterator it; 
+
+	it = nodes.find(path); 
+
+	if (it == nodes.end()) return -ENOENT;
+	if (S_ISDIR(it->second->mode)) return -EISDIR;
+
+	n = nodes[path];
+
+	for (i = 0; i < ((n->size / header->block_size) + 1); i++)
+	{
+		offset = n->blocks[i]; 
+
+		debugf("%d: %d\n", i, offset);
+
+		free(blocks[offset]->data);
+		free(blocks[offset]); 
+		blocks.erase(blocks.find(offset)); 
+	}
+	
+	free(n->blocks);
+	free(n);
+	nodes.erase(nodes.find(path)); 
+
+	return 0;
 }
 
 //////////////////////////////////////////////////////////////////
-//Make a directory <path> with the given permissions <mode>. If
+//Mke a directory <path> with the given permissions <mode>. If
 //the directory already exists, return -EEXIST. If this function
 //succeeds, return 0.
 //////////////////////////////////////////////////////////////////
@@ -526,7 +565,7 @@ void fs_destroy(void *ptr)
 //////////////////////////////////////////////////////////////////
 //int main()
 //DO NOT MODIFY THIS FUNCTION
-//////////////////////////////////////////////////////////////////
+////i//////////////////////////////////////////////////////////////
 int main(int argc, char *argv[])
 {
     fuse_operations *fops;
