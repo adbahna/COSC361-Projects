@@ -1,8 +1,8 @@
 //COSC 361 Spring 2017
 //FUSE Project Template
-//Group Name
-//Group Member 1 Name
-//Group Member 2 Name
+//Dgreps
+//Michael Goin
+//Alex Bahna
 
 #ifndef __cplusplus
 #error "You must compile this using C++"
@@ -114,7 +114,6 @@ int fs_drive(const char *dname)
 
         if (n->size > 0) {
             // read in block offsets
-            debugf("number of block offsets:%d \n", (n->size/header->block_size)+1);
             n->blocks = (uint64_t*)malloc(sizeof(uint64_t)*(n->size/header->block_size)+1);
             fread(n->blocks, sizeof(uint64_t),((n->size/header->block_size)+1), hdfd);
         }
@@ -137,6 +136,31 @@ int fs_drive(const char *dname)
     fclose(hdfd);
 
     return 0;
+}
+
+void coalesce_blocks()
+{
+    debugf("coalesce_blocks\n");
+
+    int count = 0;
+    map<int,int> block_offsets;
+    // make a map between block offsets and contiguous offsets
+    for (map<string,NODE*>::iterator it = nodes.begin(); it != nodes.end(); it++) {
+        if (it->second->size > 0) {
+            for (unsigned int i = 0; i < (it->second->size/header->block_size)+1; i++) {
+                block_offsets.insert(make_pair(it->second->blocks[i],count));
+                it->second->blocks[i] = count;
+                count++;
+            }
+        }
+    }
+
+    map<int,BLOCK*> blocks_copy = blocks;
+    blocks.clear();
+    // fills blocks with contiguous blocks
+    for (map<int,int>::iterator it = block_offsets.begin(); it != block_offsets.end(); it++) {
+        blocks.insert(make_pair(it->second,blocks_copy[it->first]));
+    }
 }
 
 //////////////////////////////////////////////////////////////////
@@ -169,7 +193,7 @@ int fs_create(const char *path, mode_t mode, struct fuse_file_info *fi)
         return -ENAMETOOLONG;
     if (fi->flags & O_RDONLY)
         return -EROFS;
-    // if the file already exits, leave
+    // if the file already exists, leave
     if (nodes.find(path) != nodes.end())
         return 0;
 
@@ -400,7 +424,16 @@ int fs_chown(const char *path, uid_t uid, gid_t gid)
 int fs_unlink(const char *path)
 {
     debugf("fs_unlink: %s\n", path);
-    return -EIO;
+
+    map<string,NODE*>::iterator it = nodes.find(path);
+    if (it == nodes.end())
+        return -ENOENT;
+    if ((it->second->mode ^ (it->second->mode | S_IFDIR)) == 0)
+        return -EISDIR;
+
+
+
+    return 0;
 }
 
 //////////////////////////////////////////////////////////////////
@@ -447,7 +480,6 @@ int fs_rmdir(const char *path)
     char buf[NAME_SIZE];
     map<string,NODE*>::iterator it;
 
-
     sprintf(buf,"%s/",path);
     for (it = nodes.begin(); it != nodes.end(); it++) {
         // if any file has the directory as a substring in it's path,
@@ -471,19 +503,42 @@ int fs_rmdir(const char *path)
 int fs_rename(const char *path, const char *new_name)
 {
     debugf("fs_rename: %s -> %s\n", path, new_name);
-    return -EIO;
+
+    map<string,NODE*>::iterator it = nodes.find(path), new_it;
+    if (it == nodes.end())
+        return -ENOENT;
+
+    string new_s = new_name;
+    size_t pos = new_s.rfind("/");
+    if (pos != 0) {
+        new_it = nodes.find(new_s.substr(0,pos));
+        if (new_it == nodes.end())
+            return -ENOENT;
+    }
+
+    NODE* n = it->second;
+    nodes.erase(it);
+    strcpy(n->name,new_name);
+    nodes.insert(make_pair(n->name,n));
+
+    return 0;
 }
 
 //////////////////////////////////////////////////////////////////
-//Rename the file given by <path> to <new_name>
-//Both <path> and <new_name> contain the full path. If
-//the new_name's path doesn't exist return -ENOENT. If
-//you were able to rename the node, then return 0.
+//Truncate the given file path to the given size
+//Return 0 if successful, error code otherwise
 //////////////////////////////////////////////////////////////////
 int fs_truncate(const char *path, off_t size)
 {
     debugf("fs_truncate: %s to size %d\n", path, size);
-    return -EIO;
+
+    map<string,NODE*>::iterator it = nodes.find(path);
+    if (it == nodes.end())
+        return -ENOENT;
+
+
+
+    return 0;
 }
 
 //////////////////////////////////////////////////////////////////
@@ -495,11 +550,12 @@ void fs_destroy(void *ptr)
     const char *filename = (const char *)ptr;
     debugf("fs_destroy: %s\n", filename);
 
-    //Save the internal data to the hard drive
-    //specified by <filename>
-
     FILE* hdfd = fopen(filename, "w");
 
+    // makes all the blocks contiguous so we can write to hard drive
+    coalesce_blocks();
+
+    // write block header
     header->nodes = nodes.size();
     header->blocks = blocks.size();
     fwrite(header,sizeof(BLOCK_HEADER),1,hdfd);
@@ -516,8 +572,8 @@ void fs_destroy(void *ptr)
     }
 
     // write blocks
-    for (unsigned int i = 0; i < blocks.size(); i++) {
-        fwrite(blocks[i]->data, sizeof(char), header->block_size, hdfd);
+    for (map<int,BLOCK*>::iterator it = blocks.begin(); it != blocks.end(); it++) {
+        fwrite(it->second->data, sizeof(char), header->block_size, hdfd);
     }
 
     fclose(hdfd);
