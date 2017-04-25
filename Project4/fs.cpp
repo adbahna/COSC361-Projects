@@ -272,25 +272,21 @@ int fs_read(const char *path, char *buf, size_t size, off_t offset,
 int fs_write(const char *path, const char *data, size_t size, off_t offset,
         struct fuse_file_info *fi)
 {
-    int blockData;
-    int blockIndex;
-
     debugf("fs_write: %s\n", path);
 
     if (fi->flags & O_RDONLY)
         return -EROFS;
-
     map <string, NODE *>::iterator it = nodes.find(path);
     if (it == nodes.end())
-        fs_create(path, 0, fi);
+        return -ENOENT;
 
-    //it = nodes.find(path);
+    if (size+offset > it->second->size) {
+        uint64_t* new_blocks = (uint64_t*)malloc(sizeof(uint64_t)*(size/header->block_size)+1);
 
-    //it->second->size = size;
-    //it->second->offset =
+    }
 
-    //blockData = offset / header->block_size;
-    //blockIndex = offset % header->block_size;
+    size_t bytes_written = 0;
+
 
     return 0;
 }
@@ -560,7 +556,11 @@ int fs_truncate(const char *path, off_t size)
     if (it == nodes.end())
         return -ENOENT;
 
-
+    uint64_t* new_blocks = (uint64_t*)malloc(sizeof(uint64_t)*(size/header->block_size)+1);
+    memcpy(new_blocks,it->second->blocks,size);
+    free(it->second->blocks);
+    it->second->size = size;
+    it->second->blocks = new_blocks;
 
     return 0;
 }
