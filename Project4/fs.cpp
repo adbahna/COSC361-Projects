@@ -127,7 +127,7 @@ int fs_drive(const char *dname)
         b->data = (char*)malloc(sizeof(char)*header->block_size);
         fread(b->data, sizeof(char), header->block_size, hdfd);
         blocks.insert(make_pair(i,b));
-		debugf("%s\n\n", b->data);
+        debugf("%s\n\n", b->data);
     }
 
     for (map<string,NODE*>::iterator it = nodes.begin(); it != nodes.end(); it++) {
@@ -210,7 +210,6 @@ int fs_create(const char *path, mode_t mode, struct fuse_file_info *fi)
     n->blocks = NULL;
 
     nodes.insert(make_pair(path,n));
-    header->nodes++;
 
     return 0;
 }
@@ -273,8 +272,8 @@ int fs_read(const char *path, char *buf, size_t size, off_t offset,
 int fs_write(const char *path, const char *data, size_t size, off_t offset,
         struct fuse_file_info *fi)
 {
-	int blockData;
-	int blockIndex;
+    int blockData;
+    int blockIndex;
 
     debugf("fs_write: %s\n", path);
 
@@ -285,13 +284,13 @@ int fs_write(const char *path, const char *data, size_t size, off_t offset,
     if (it == nodes.end())
         fs_create(path, 0, fi);
 
-	//it = nodes.find(path);
+    //it = nodes.find(path);
 
-	//it->second->size = size;
-	//it->second->offset = 
+    //it->second->size = size;
+    //it->second->offset =
 
-	//blockData = offset / header->block_size;
-	//blockIndex = offset % header->block_size;
+    //blockData = offset / header->block_size;
+    //blockIndex = offset % header->block_size;
 
     return 0;
 }
@@ -437,31 +436,30 @@ int fs_unlink(const char *path)
 {
     debugf("fs_unlink: %s\n", path);
 
-	int i, offset; 
-	NODE * n; 
-	map <std::string, NODE *>::iterator it; 
+    NODE * n;
+    map <std::string, NODE *>::iterator it;
+    it = nodes.find(path);
 
-	it = nodes.find(path); 
+    if (it == nodes.end()) return -ENOENT;
+    if (S_ISDIR(it->second->mode)) return -EISDIR;
 
-	if (it == nodes.end()) return -ENOENT;
-	if (S_ISDIR(it->second->mode)) return -EISDIR;
+    n = it->second;
 
-	n = nodes[path];
+    if (n->size > 0) {
+        for (unsigned int i = 0; i < ((n->size / header->block_size) + 1); i++)
+        {
+            map<int,BLOCK*>::iterator bt = blocks.find(n->blocks[i]);
+            free(bt->second->data);
+            free(bt->second);
+            blocks.erase(bt);
+        }
+    }
 
-	for (i = 0; i < ((n->size / header->block_size) + 1); i++)
-	{
-		offset = n->blocks[i]; 
+    free(n->blocks);
+    free(n);
+    nodes.erase(it);
 
-		free(blocks[offset]->data);
-		free(blocks[offset]); 
-		blocks.erase(blocks.find(offset)); 
-	}
-	
-	free(n->blocks);
-	free(n);
-	nodes.erase(nodes.find(path)); 
-
-	return 0;
+    return 0;
 }
 
 //////////////////////////////////////////////////////////////////
@@ -491,7 +489,6 @@ int fs_mkdir(const char *path, mode_t mode)
     n->blocks = NULL;
 
     nodes.insert(make_pair(path,n));
-    header->nodes++;
 
     return 0;
 }
@@ -517,7 +514,6 @@ int fs_rmdir(const char *path)
     }
 
     nodes.erase(path);
-    header->nodes--;
 
     return 0;
 }
