@@ -114,7 +114,7 @@ int fs_drive(const char *dname)
 
         if (n->size > 0) {
             // read in block offsets
-            n->blocks = (uint64_t*)malloc(sizeof(uint64_t)*(n->size/header->block_size)+1);
+            n->blocks = (uint64_t*)malloc(sizeof(uint64_t)*((n->size/header->block_size)+1));
             fread(n->blocks, sizeof(uint64_t),((n->size/header->block_size)+1), hdfd);
         }
 
@@ -233,8 +233,8 @@ int fs_read(const char *path, char *buf, size_t size, off_t offset,
 
     int block_offset = 0, byte_offset = 0;
     if (offset != 0) {
-        block_offset = header->block_size/offset;
-        byte_offset = header->block_size%offset;
+        block_offset = offset/header->block_size;
+        byte_offset = offset%header->block_size;
     }
 
     uint64_t* start_block = it->second->blocks+block_offset;
@@ -279,16 +279,60 @@ int fs_write(const char *path, const char *data, size_t size, off_t offset,
     map <string, NODE *>::iterator it = nodes.find(path);
     if (it == nodes.end())
         return -ENOENT;
+    if (S_ISDIR(it->second->mode))
+        return -EISDIR;
 
-    if (size+offset > it->second->size) {
-        uint64_t* new_blocks = (uint64_t*)malloc(sizeof(uint64_t)*(size/header->block_size)+1);
-
+    // if there isn't enough space on the hard drive, quit
+    if (((((size+offset-it->second->size)/header->block_size)+1+blocks.size())*header->block_size) > MAX_DRIVE_SIZE) {
+        return -ENOSPC;
     }
 
+    // if we need to allocate more space for the node
+    if (((size+offset)/header->block_size) > (it->second->size/header->block_size)) {
+        // allocate the new block offsets in the node
+        it->second->blocks = (uint64_t*)realloc(it->second->blocks, sizeof(uint64_t)*(((size+offset)/header->block_size)+1));
+
+        map<int,BLOCK*>::reverse_iterator rit;
+        // find free block offsets we can use and allocate the blocks
+        for (unsigned int i = (it->second->size/header->block_size)+1; i < ((size+offset)/header->block_size)+1; i++) {
+            rit = blocks.rbegin();
+            BLOCK* b = (BLOCK*)malloc(sizeof(BLOCK));
+            b->data = (char*)malloc(sizeof(char)*header->block_size);
+
+            it->second->blocks[i] = rit->first+1;
+            blocks.insert(make_pair(rit->first+1,b));
+        }
+
+        it->second->size = size+offset;
+    }
+
+    off_t block_offset = 0, byte_offset = 0;
+    if (offset != 0) {
+        block_offset = offset/header->block_size;
+        byte_offset = offset%header->block_size;
+    }
+
+    uint64_t* start_block = it->second->blocks+block_offset;
+
+    int count = 0, i = 0;
     size_t bytes_written = 0;
+    // if there is a byte offset, we need to read just a section of the first block
+    if (byte_offset != 0) {
+        count = min(size-bytes_written,header->block_size-byte_offset);
+        memcpy(blocks[(*start_block)]->data+byte_offset, data+bytes_written, count);
+        bytes_written += count;
+        i++;
+    }
 
+    // keep reading blocks until we read size bytes
+    while (bytes_written < size) {
+        count = min(size-bytes_written,header->block_size);
+        memcpy(blocks[*(start_block+i)]->data, data+bytes_written, count);
+        bytes_written += count;
+        i++;
+    }
 
-    return 0;
+    return bytes_written;
 }
 
 //////////////////////////////////////////////////////////////////
@@ -306,7 +350,6 @@ int fs_write(const char *path, const char *data, size_t size, off_t offset,
 //////////////////////////////////////////////////////////////////
 int fs_getattr(const char *path, struct stat *s)
 {
-
     debugf("fs_getattr: %s\n", path);
 
     map <string, NODE *>::iterator it = nodes.find(path);
@@ -557,7 +600,7 @@ int fs_truncate(const char *path, off_t size)
         return -ENOENT;
 
     uint64_t* new_blocks = (uint64_t*)malloc(sizeof(uint64_t)*(size/header->block_size)+1);
-    memcpy(new_blocks,it->second->blocks,size);
+    memcpy(new_blocks,it->second->blocks,sizeof(uint64_t)*(size/header->block_size)+1);
     free(it->second->blocks);
     it->second->size = size;
     it->second->blocks = new_blocks;
