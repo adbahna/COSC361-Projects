@@ -6,6 +6,10 @@
 #define GB_MASK         (0x3ffffffful)
 #define MB_MASK         (0x2fffful)
 
+typedef struct {
+    ADDRESS* entries[512];
+} Table;
+
 void StartNewPageTable(CPU *cpu)
 {
     //Create cr3 all the way!
@@ -90,6 +94,18 @@ void map(CPU *cpu, ADDRESS phys, ADDRESS virt, PAGE_SIZE ps)
     //If the page size is 4K, you need a valid PML4, PDP, PD, and PT
     //Remember that I could have some 2M pages and some 4K pages with a smattering
     //of 1G pages!
+    /*
+    ADDRESS pml4e = (virt >> 39) & ENTRY_MASK;
+    ADDRESS pdpe = (virt >> 30) & ENTRY_MASK;
+    ADDRESS pde = (virt >> 21) & ENTRY_MASK;
+    ADDRESS pte = (virt >> 12) & ENTRY_MASK;
+    ADDRESS pe = virt & PHYS_MASK;
+
+    ADDRESS *pml4 = (ADDRESS *)cpu->cr3;
+    ADDRESS *pdp;
+    ADDRESS *pd;
+    ADDRESS *pt;
+    */
 
     if (cpu->cr3 == 0) StartNewPageTable(cpu);
 
@@ -97,72 +113,11 @@ void map(CPU *cpu, ADDRESS phys, ADDRESS virt, PAGE_SIZE ps)
 
     if (ps == PS_4K) {
 
-        ADDRESS pml4e = (virt >> 39) & ENTRY_MASK;
-        ADDRESS pdpe = (virt >> 30) & ENTRY_MASK;
-        ADDRESS pde = (virt >> 21) & ENTRY_MASK;
-        ADDRESS pte = (virt >> 12) & ENTRY_MASK;
-        ADDRESS pe = virt & PHYS_MASK;
+    } else if (ps == PS_2M) {
 
-        ADDRESS pml4, pdp, pd, pt, p;
-        
-        pml4e |= 0x0000000000000001;
-        cpu->memory[cpu->cr3] = pml4e;
+    } else if (ps == PS_1G) {
 
-        pdpe |= 0x0000000000000001;
-        cpu->memory[pml4e] = pdpe; 
-
-        pde |= 0x0000000000000001; 
-        cpu->memory[pdpe] = pde; 
-
-        pte |= 0x0000000000000081; 
-        cpu->memory[pde] = pte;
     }
-
-    if (ps == PS_2M) {
-        
-        ADDRESS pml4e = (virt >> 39) & ENTRY_MASK;
-        ADDRESS pdpe = (virt >> 30) & ENTRY_MASK;
-        ADDRESS pde = (virt >> 21) & ENTRY_MASK;
-        ADDRESS pe = virt & MB_MASK;
-
-        ADDRESS pml4, pdp, pd, p;
-
-        pml4e |= 0x0000000000000001;
-        cpu->memory[cpu->cr3] = pml4e;
-
-        pdpe |= 0x0000000000000001;
-        cpu->memory[pml4e] = pdpe; 
-
-        pde |= 0x0000000000000081; 
-        cpu->memory[pdpe] = pde; 
-    }
-
-    if (ps == PS_1G) {
-        
-        ADDRESS pml4e = (virt >> 39) & ENTRY_MASK;
-        ADDRESS pdpe = (virt >> 30) & ENTRY_MASK;
-        ADDRESS pe = virt & GB_MASK;
-
-        ADDRESS pml4, pdp, p;
-
-        pml4e |= 0x0000000000000001;
-        cpu->memory[cpu->cr3] = pml4e;
-
-        pdpe |= 0x0000000000000081;
-        cpu->memory[pml4e] = pdpe; 
-    }
-    /*
-       ADDRESS pml4e = (virt >> 39) & ENTRY_MASK;
-       ADDRESS pdpe = (virt >> 30) & ENTRY_MASK;
-       ADDRESS pde = (virt >> 21) & ENTRY_MASK;
-       ADDRESS pte = (virt >> 12) & ENTRY_MASK;
-       ADDRESS p = virt & PHYS_MASK;
-
-       ADDRESS *pml4 = (ADDRESS *)cpu->cr3;
-       ADDRESS *pdp;
-       ADDRESS *pd;
-       ADDRESS *pt;
-       */
 }
 
 void unmap(CPU *cpu, ADDRESS virt, PAGE_SIZE ps)

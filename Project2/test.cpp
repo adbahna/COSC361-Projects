@@ -50,14 +50,19 @@ int main()
 
     s = new_scheduler(init);
     s->scheduler_algorithm = SA_ROUND_ROBIN;
+    list_processes(s);
 
     pid = fork(s, 1);
     exec(s, pid, "My Process", init, p2_step, -1);
 
     timer_interrupt(s);
+    list_processes(s);
     timer_interrupt(s);
+    list_processes(s);
     timer_interrupt(s);
+    list_processes(s);
     timer_interrupt(s);
+    list_processes(s);
 
     s->scheduler_algorithm = SA_FAIR;
 
@@ -65,9 +70,13 @@ int main()
     exec(s, pid, "My Fair Process", init, p3_step, -1);
 
     timer_interrupt(s);
+    list_processes(s);
     timer_interrupt(s);
+    list_processes(s);
     timer_interrupt(s);
+    list_processes(s);
     timer_interrupt(s);
+    list_processes(s);
     timer_interrupt(s);
 
     list_processes(s);

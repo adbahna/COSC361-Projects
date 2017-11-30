@@ -1,14 +1,14 @@
 /////////////////////////////////////////////////////////////////////////////////////////////
 //-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-//
-//=                                                                                       =//
+//=                                                                                       +//
 //-				  CS-361 PROJECT 1 // IMPLEMENTING BASIC PRINTF AND SNPRINTF 	          -//
 //=				  -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=              =//
 //-																						  -//
 //=						 =  Contributors: Michael Goin, Alex Bahna  =				   	  =//
 //-																						  -//
-//=						  	  =  Completed: January 25 2017  = 							  =//
+//=						  	=  Completed: January 25 2017  = 							  =//
 //-																						  -//
-//=									    Description:									  =//
+//=									 Description:									 	  =//
 //-																						  -//
 //=																						  =//
 //-	   = Implementation of printf and snprintf (albeit not robust) in language C++		  -//

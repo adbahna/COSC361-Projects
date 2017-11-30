@@ -32,6 +32,7 @@ DEPS	:= $(wildcard $(DEP_PATH)/*.d)
 OBJS	:= $(patsubst %.cpp,$(OBJ_PATH)/%.o,$(SOURCES_CPP))
 
 all:
+	@$(MAKE) unmount
 	@if [ ! -d $(MNT_PATH) ]; then mkdir $(MNT_PATH); fi
 	@if [ ! -d $(DEP_PATH) ]; then mkdir $(DEP_PATH); fi
 	@if [ ! -d $(OBJ_PATH) ]; then mkdir $(OBJ_PATH); fi
@@ -46,7 +47,7 @@ $(OBJ_PATH)/%.o: %.cpp Makefile
 	$(CXX) $(CXXFLAGS) -o $@ -c $<
 	@$(MV) $(OBJ_PATH)/$(patsubst %.cpp,%.d,$<) $(DEP_PATH)/$(patsubst %.cpp,%.d,$<)
 
-.PHONY: clean distclean perm run
+.PHONY: clean distclean perm run unmount
 
 oclean:
 	@echo "  CLEAN"
@@ -55,8 +56,21 @@ oclean:
 	@$(RM) -f $(PROG)
 
 clean:
+	@make unmount
 	@echo "  DISTCLEAN"
 	@$(RM) -fr $(DEP_PATH)
 	@$(RM) -fr $(OBJ_PATH)
 	@$(RM) -fr $(MNT_PATH)
 	@$(RM) -f $(PROG)
+	@$(RM) -f hard_drive
+
+
+unmount:
+	@echo "  UNMOUNT"
+	@chmod 755 .
+	@fusermount -u mnt || test -a
+	@chmod 700 .
+
+test:
+	@/home/smarz1/CS361/fuse/test
+	@make clean

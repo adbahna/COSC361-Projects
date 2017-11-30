@@ -290,14 +290,11 @@ int fs_write(const char *path, const char *data, size_t size, off_t offset,
     // if we need to allocate more space for the node
     if (((size+offset)/header->block_size) > (it->second->size/header->block_size)) {
         // allocate the new block offsets in the node
-        uint64_t* tmp  = (uint64_t*)malloc(sizeof(uint64_t)*(((size+offset)/header->block_size)+10));
-        memcpy(tmp, it->second->blocks, sizeof(uint64_t)*((it->second->size/header->block_size)+1));
-        free(it->second->blocks);
-        it->second->blocks = tmp;
+        it->second->blocks = (uint64_t*)realloc(it->second->blocks, sizeof(uint64_t)*(((size+offset)/header->block_size)+10));
 
         map<int,BLOCK*>::reverse_iterator rit;
         // find free block offsets we can use and allocate the blocks
-        for (unsigned int i = (it->second->size/header->block_size)+1; i < ((size+offset)/header->block_size)+4; i++) {
+        for (unsigned int i = (it->second->size/header->block_size)+1; i < ((size+offset)/header->block_size)+10; i++) {
             rit = blocks.rbegin();
             BLOCK* b = (BLOCK*)malloc(sizeof(BLOCK));
             b->data = (char*)malloc(sizeof(char)*header->block_size);
